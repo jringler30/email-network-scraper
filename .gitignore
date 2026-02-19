@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+
+# Scraper outputs
+jmail_output/
+thread_ids.txt
+processed_threads.txt
+checkpoint.json
+*.csv
+*.log
+
+# macOS junk
+.DS_Store
+
+# virtual environments
+.venv/
+env/

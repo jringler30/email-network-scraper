@@ -328,26 +328,106 @@ def _metric_label(m: str) -> str:
 # =========================================================================
 # App header
 # =========================================================================
+
+# Inline SVG — Gmail-style M envelope with straw hat, no external file needed
+_JMAIL_ICON = """
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 66" width="44" height="54"
+     style="display:block;flex-shrink:0;">
+  <!-- Straw hat crown -->
+  <path d="M15,24 C15,24 16,9 26,9 C36,9 37,24 37,24Z" fill="#E8C050"/>
+  <!-- Hat brim -->
+  <ellipse cx="26" cy="24" rx="24" ry="5" fill="#D4A535"/>
+  <!-- Hat band (blue ribbon) -->
+  <path d="M15,21 Q26,17 37,21 L37,25 Q26,21 15,25Z" fill="#3B6EC4" opacity="0.9"/>
+  <!-- Hat straw texture lines -->
+  <ellipse cx="26" cy="24" rx="16" ry="3.2" fill="none"
+           stroke="#C8962A" stroke-width="0.5" opacity="0.4"/>
+  <ellipse cx="26" cy="24" rx="8" ry="1.8" fill="none"
+           stroke="#C8962A" stroke-width="0.5" opacity="0.4"/>
+
+  <!-- Gmail M envelope -->
+  <!-- White envelope base -->
+  <rect x="2" y="24" width="48" height="38" rx="3" fill="white"/>
+
+  <!-- Blue left strip (with rounded top-left) -->
+  <rect x="2" y="24" width="8" height="38" fill="#4285F4"/>
+  <rect x="2" y="24" width="8" height="8" rx="3" fill="#4285F4"/>
+
+  <!-- Red right strip (with rounded top-right) -->
+  <rect x="42" y="24" width="8" height="38" fill="#EA4335"/>
+  <rect x="42" y="24" width="8" height="8" rx="3" fill="#EA4335"/>
+
+  <!-- Green bottom-left rounded corner -->
+  <rect x="2" y="54" width="8" height="8" rx="3" fill="#34A853"/>
+
+  <!-- Yellow bottom-right rounded corner -->
+  <rect x="42" y="54" width="8" height="8" rx="3" fill="#FBBC04"/>
+
+  <!-- M fold: white center panel -->
+  <path d="M10,24 L26,38 L42,24 L42,40 L26,54 L10,40Z" fill="white"/>
+
+  <!-- Left M slope (blue) -->
+  <path d="M10,24 L26,38 L10,40Z" fill="#4285F4"/>
+
+  <!-- Right M slope (red) -->
+  <path d="M42,24 L26,38 L42,40Z" fill="#EA4335"/>
+
+  <!-- Bottom-left quadrant (green) -->
+  <path d="M10,62 L10,40 L26,54 L26,62Z" fill="#34A853"/>
+
+  <!-- Bottom-right quadrant (yellow) -->
+  <path d="M42,62 L42,40 L26,54 L26,62Z" fill="#FBBC04"/>
+</svg>
+"""
+
+_date_range = (
+    f'<span style="color:#8899AA;font-size:0.75rem;">'
+    f'{date_min.strftime("%b %Y")} – {date_max.strftime("%b %Y")}</span>'
+    if has_dates else ""
+)
+
 st.markdown(f"""
 <div style='display:flex;align-items:center;justify-content:space-between;
-padding:1.1rem 0 0.6rem 0;border-bottom:1px solid rgba(255,255,255,0.06);
+padding:1rem 0 0.75rem 0;border-bottom:1px solid rgba(255,255,255,0.06);
 margin-bottom:1rem;'>
-  <div>
-    <span style='font-size:1.3rem;font-weight:800;color:#E6EDF3;
-    letter-spacing:-0.02em;'>🔗 Jmail Network Explorer</span>
-    <span style='color:#8899AA;font-size:0.8rem;margin-left:12px;'>
-    Email communication intelligence</span>
+
+  <!-- Logo + wordmark -->
+  <div style='display:flex;align-items:center;gap:10px;'>
+    {_JMAIL_ICON}
+    <div style='line-height:1;'>
+      <span style='font-family:"Google Sans","Product Sans",Arial,sans-serif;
+        font-size:2rem;font-weight:400;letter-spacing:-0.5px;color:#E6EDF3;'>
+        <span style='font-weight:700;'>J</span>mail
+      </span>
+      <div style='color:#8899AA;font-size:0.72rem;margin-top:2px;
+        letter-spacing:0.03em;'>Email network intelligence</div>
+    </div>
   </div>
-  <div style='display:flex;gap:20px;font-size:0.78rem;color:#8899AA;'>
-    <span><span style='color:#00E5A8;font-weight:700;'>
-    {summary['num_nodes']:,}</span> nodes</span>
-    <span><span style='color:#4FC3F7;font-weight:700;'>
-    {summary['num_edges']:,}</span> edges</span>
-    <span><span style='color:#BB86FC;font-weight:700;'>
-    {len(comm_counts):,}</span> communities</span>
-    {'<span><span style="color:#FF9F43;font-weight:700;">' +
-     date_min.strftime("%b %Y") + '</span> → <span style="color:#FF9F43;font-weight:700;">' +
-     date_max.strftime("%b %Y") + '</span></span>' if has_dates else ''}
+
+  <!-- Live stats -->
+  <div style='display:flex;align-items:center;gap:22px;'>
+    <div style='text-align:center;'>
+      <div style='color:#00E5A8;font-size:1.05rem;font-weight:700;line-height:1;'>
+        {summary['num_nodes']:,}</div>
+      <div style='color:#8899AA;font-size:0.65rem;text-transform:uppercase;
+        letter-spacing:0.07em;margin-top:3px;'>nodes</div>
+    </div>
+    <div style='width:1px;height:28px;background:rgba(255,255,255,0.08);'></div>
+    <div style='text-align:center;'>
+      <div style='color:#4FC3F7;font-size:1.05rem;font-weight:700;line-height:1;'>
+        {summary['num_edges']:,}</div>
+      <div style='color:#8899AA;font-size:0.65rem;text-transform:uppercase;
+        letter-spacing:0.07em;margin-top:3px;'>edges</div>
+    </div>
+    <div style='width:1px;height:28px;background:rgba(255,255,255,0.08);'></div>
+    <div style='text-align:center;'>
+      <div style='color:#BB86FC;font-size:1.05rem;font-weight:700;line-height:1;'>
+        {len(comm_counts):,}</div>
+      <div style='color:#8899AA;font-size:0.65rem;text-transform:uppercase;
+        letter-spacing:0.07em;margin-top:3px;'>communities</div>
+    </div>
+    {'<div style="width:1px;height:28px;background:rgba(255,255,255,0.08);"></div>' if has_dates else ''}
+    {f'<div style="text-align:center;">{_date_range}</div>' if has_dates else ''}
   </div>
 </div>
 """, unsafe_allow_html=True)

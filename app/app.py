@@ -341,72 +341,49 @@ _date_range = (
     if has_dates else ""
 )
 
-st.markdown(f"""
-<div style='display:flex;align-items:center;justify-content:space-between;
-  padding:1rem 0 0.8rem 0;border-bottom:1px solid rgba(255,255,255,0.07);
-  margin-bottom:1rem;'>
-
-  <!-- Wordmark: CSS envelope icon + Jmail text -->
-  <div style='display:flex;align-items:center;gap:12px;'>
-
-    <!-- Gmail-style M icon built from pure CSS divs -->
-    <div style='display:flex;align-items:stretch;border-radius:5px;
-      overflow:hidden;height:42px;box-shadow:0 2px 10px rgba(0,0,0,0.5);
-      flex-shrink:0;'>
-      <!-- Blue left bar -->
-      <div style='width:9px;background:#4285F4;'></div>
-      <!-- White center with M letterform -->
-      <div style='background:white;width:38px;display:flex;align-items:center;
-        justify-content:center;'>
-        <span style='font-size:1.35rem;font-weight:900;color:#3c4043;
-          font-family:Arial,sans-serif;line-height:1;'>M</span>
-      </div>
-      <!-- Red right bar -->
-      <div style='width:9px;background:#EA4335;'></div>
-    </div>
-
-    <!-- Wordmark text -->
-    <div style='line-height:1;'>
-      <div style='font-family:"Google Sans","Product Sans",Arial,sans-serif;
-        font-size:2rem;font-weight:400;letter-spacing:-0.3px;color:#E6EDF3;'>
-        <span style='font-weight:700;'>J</span>mail
-      </div>
-      <div style='color:#8899AA;font-size:0.7rem;margin-top:3px;
-        letter-spacing:0.04em;text-transform:uppercase;'>
-        Email network intelligence
-      </div>
-    </div>
-  </div>
-
-  <!-- Live stats -->
-  <div style='display:flex;align-items:center;gap:24px;'>
-    <div style='text-align:center;'>
-      <div style='color:#00E5A8;font-size:1.1rem;font-weight:700;line-height:1;'>
-        {summary['num_nodes']:,}</div>
-      <div style='color:#8899AA;font-size:0.62rem;text-transform:uppercase;
-        letter-spacing:0.08em;margin-top:4px;'>nodes</div>
-    </div>
-    <div style='width:1px;height:30px;background:rgba(255,255,255,0.08);'></div>
-    <div style='text-align:center;'>
-      <div style='color:#4FC3F7;font-size:1.1rem;font-weight:700;line-height:1;'>
-        {summary['num_edges']:,}</div>
-      <div style='color:#8899AA;font-size:0.62rem;text-transform:uppercase;
-        letter-spacing:0.08em;margin-top:4px;'>edges</div>
-    </div>
-    <div style='width:1px;height:30px;background:rgba(255,255,255,0.08);'></div>
-    <div style='text-align:center;'>
-      <div style='color:#BB86FC;font-size:1.1rem;font-weight:700;line-height:1;'>
-        {len(comm_counts):,}</div>
-      <div style='color:#8899AA;font-size:0.62rem;text-transform:uppercase;
-        letter-spacing:0.08em;margin-top:4px;'>communities</div>
-    </div>
-    {f'''
-    <div style="width:1px;height:30px;background:rgba(255,255,255,0.08);"></div>
-    <div style="text-align:center;font-size:0.78rem;">{_date_range}</div>
-    ''' if has_dates else ''}
-  </div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    "<div style='display:flex;align-items:center;justify-content:space-between;"
+    "padding:1rem 0 0.8rem 0;border-bottom:1px solid rgba(255,255,255,0.07);"
+    "margin-bottom:1rem;'>"
+    "<div style='display:flex;align-items:center;gap:12px;'>"
+    "<div style='display:flex;align-items:stretch;border-radius:5px;"
+    "overflow:hidden;height:42px;box-shadow:0 2px 10px rgba(0,0,0,0.5);flex-shrink:0;'>"
+    "<div style='width:9px;background:#4285F4;'></div>"
+    "<div style='background:white;width:38px;display:flex;align-items:center;justify-content:center;'>"
+    "<span style='font-size:1.35rem;font-weight:900;color:#3c4043;font-family:Arial,sans-serif;line-height:1;'>M</span>"
+    "</div>"
+    "<div style='width:9px;background:#EA4335;'></div>"
+    "</div>"
+    "<div style='line-height:1;'>"
+    "<div style='font-family:Arial,sans-serif;font-size:2rem;font-weight:400;letter-spacing:-0.3px;color:#E6EDF3;'>"
+    "<span style='font-weight:700;'>J</span>mail"
+    "</div>"
+    "<div style='color:#8899AA;font-size:0.7rem;margin-top:3px;letter-spacing:0.04em;text-transform:uppercase;'>"
+    "Email network intelligence"
+    "</div>"
+    "</div>"
+    "</div>"
+    f"<div style='display:flex;align-items:center;gap:24px;'>"
+    f"<div style='text-align:center;'>"
+    f"<div style='color:#00E5A8;font-size:1.1rem;font-weight:700;line-height:1;'>{summary['num_nodes']:,}</div>"
+    f"<div style='color:#8899AA;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;'>nodes</div>"
+    f"</div>"
+    f"<div style='width:1px;height:30px;background:rgba(255,255,255,0.08);'></div>"
+    f"<div style='text-align:center;'>"
+    f"<div style='color:#4FC3F7;font-size:1.1rem;font-weight:700;line-height:1;'>{summary['num_edges']:,}</div>"
+    f"<div style='color:#8899AA;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;'>edges</div>"
+    f"</div>"
+    f"<div style='width:1px;height:30px;background:rgba(255,255,255,0.08);'></div>"
+    f"<div style='text-align:center;'>"
+    f"<div style='color:#BB86FC;font-size:1.1rem;font-weight:700;line-height:1;'>{len(comm_counts):,}</div>"
+    f"<div style='color:#8899AA;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;'>communities</div>"
+    f"</div>"
+    + (f"<div style='width:1px;height:30px;background:rgba(255,255,255,0.08);'></div>"
+       f"<div style='text-align:center;font-size:0.78rem;'>{_date_range}</div>"
+       if has_dates else "")
+    + "</div></div>",
+    unsafe_allow_html=True,
+)
 
 
 # =========================================================================

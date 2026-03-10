@@ -2,7 +2,7 @@
 Jmail Network Explorer — Interactive email network dashboard.
 
 Run with:
-    streamlit run app.py
+    streamlit run app/app.py
 """
 
 import streamlit as st
@@ -66,7 +66,7 @@ st.markdown("""
 # =========================================================================
 # Data loading
 # =========================================================================
-DATA_DIR = Path(".")
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 data = load_all(DATA_DIR)
 edges_df = data["primary_edges"]
@@ -74,10 +74,10 @@ edges_df = data["primary_edges"]
 if edges_df is None:
     st.error(
         "**No edge data found.** The app expects at least one of these files "
-        "in the repo root:\n\n"
-        "- `cleaned_edges.csv`\n"
-        "- `network_edge_list.csv`\n\n"
-        "Run the scraper first or place the CSV files in the working directory."
+        "in the `data/` folder:\n\n"
+        "- `data/cleaned_edges.csv`\n"
+        "- `data/network_edge_list.csv`\n\n"
+        "Run the scraper first or place the CSV files in the `data/` directory."
     )
     st.stop()
 

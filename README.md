@@ -16,8 +16,8 @@ A two-phase Selenium crawler that extracts email metadata from [jmail.world](htt
 Requires Python 3.10+ and Google Chrome.
 
 ```bash
-git clone https://github.com/<your-username>/jmail-network-scraper.git
-cd jmail-network-scraper
+git clone https://github.com/jringler30/email-network-scraper.git
+cd email-network-scraper
 pip install -r requirements.txt
 ```
 
@@ -26,23 +26,26 @@ ChromeDriver is managed automatically via `webdriver-manager`. No manual driver 
 ## Usage
 
 ```bash
-# Run full pipeline (Phase 1 + Phase 2):
-python scrape_metadata.py
+# Run the Streamlit dashboard:
+streamlit run app/app.py
+
+# Run full scraper pipeline (Phase 1 + Phase 2):
+python scraper/scraper.py
 
 # Phase 1 only — collect thread IDs from inbox pagination:
-python scrape_metadata.py --phase 1
+python scraper/scraper.py --phase 1
 
 # Phase 2 only — crawl threads listed in thread_ids.txt:
-python scrape_metadata.py --phase 2
+python scraper/scraper.py --phase 2
 
 # Limit Phase 1 to the first 200 inbox rows:
-python scrape_metadata.py --phase 1 --max-rows 200
+python scraper/scraper.py --phase 1 --max-rows 200
 
 # Run with visible browser for debugging:
-python scrape_metadata.py --no-headless
+python scraper/scraper.py --no-headless
 
 # Custom output directory:
-python scrape_metadata.py --outdir ./data
+python scraper/scraper.py --outdir ./data
 ```
 
 To resume an interrupted run, simply re-execute the same command. The scraper detects previously processed threads and continues where it left off.
@@ -67,15 +70,24 @@ Scraped datasets are intentionally excluded from this repository. The archive co
 ## Project Structure
 
 ```
-.
-├── scrape_metadata.py       # Main scraper script
-├── requirements.txt         # Python dependencies
-├── README.md
-└── jmail_output/            # Created at runtime (gitignored)
-    ├── thread_ids.txt
-    ├── processed_threads.txt
-    ├── edges.csv
-    └── nodes.csv
+email-network-scraper/
+├── app/
+│   ├── app.py               # Streamlit dashboard
+│   └── utils/
+│       ├── charts.py
+│       ├── data_loader.py
+│       ├── graph_builder.py
+│       └── network_views.py
+├── data/
+│   ├── cleaned_edges.csv
+│   ├── cleaned_nodes.csv
+│   └── network_edge_list.csv
+├── notebook/
+│   └── jmail_network.ipynb
+├── scraper/
+│   └── scraper.py           # Two-phase Selenium crawler
+├── requirements.txt
+└── README.md
 ```
 
 ## License

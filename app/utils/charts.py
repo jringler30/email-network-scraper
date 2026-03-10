@@ -225,37 +225,31 @@ def pyvis_network(
         neighborhood_highlight=True,
     )
 
-    # ── Physics: ForceAtlas2 — high repulsion, full overlap avoidance ─────
-    net.force_atlas_2based(
-        gravity=-90,           # was -55  → stronger repulsion
-        central_gravity=0.003, # was 0.005 → weaker pull to center
-        spring_length=170,     # was 130  → longer springs = more spread
-        spring_strength=0.04,  # was 0.06 → weaker springs = more spread
-        damping=0.88,
-        overlap=1.0,           # was 0.4  → full overlap avoidance
-    )
-
-    # ── Options: interaction + stabilization only (no physics override) ───
+    # ── Physics + options: Barnes-Hut with avoidOverlap ───────────────────
+    # avoidOverlap: 1.0 is the key — vis.js scales repulsion against each node's
+    # actual pixel radius, so nodes genuinely cannot touch regardless of size.
+    # ForceAtlas2's overlap param does not do this.
     try:
         net.set_options(json.dumps({
             "nodes": {
                 "font": {
                     "face": "Inter, Arial, sans-serif",
+                    "size": 12,
                     "strokeWidth": 3,
-                    "strokeColor": "#0B0F17",  # dark halo makes labels readable
+                    "strokeColor": "#0B0F17",
                 },
-                "shadow": {"enabled": True, "size": 10, "color": "rgba(0,0,0,0.7)"},
+                "shadow": {"enabled": True, "size": 8, "color": "rgba(0,0,0,0.6)"},
             },
             "edges": {
-                "smooth": {"type": "continuous", "roundness": 0.2},
+                "smooth": {"type": "dynamic", "roundness": 0.3},
                 "arrows": {
-                    "to": {"enabled": G.is_directed(), "scaleFactor": 0.35}
+                    "to": {"enabled": G.is_directed(), "scaleFactor": 0.3}
                 },
                 "color": {
-                    "color": "#3A405A",      # slightly brighter than before
+                    "color": "#3A405A",
                     "highlight": ACCENT,
                     "hover": SECONDARY,
-                    "opacity": 0.75,
+                    "opacity": 0.7,
                 },
                 "selectionWidth": 2.5,
                 "hoverWidth": 2,
@@ -270,15 +264,24 @@ def pyvis_network(
                 "keyboard": {"enabled": False},
             },
             "physics": {
+                "solver": "barnesHut",
+                "barnesHut": {
+                    "gravitationalConstant": -60000,  # strong repulsion between all nodes
+                    "centralGravity": 0.05,           # very weak center pull
+                    "springLength": 200,              # resting edge length in pixels
+                    "springConstant": 0.04,           # spring stiffness (lower = looser)
+                    "damping": 0.1,                   # friction
+                    "avoidOverlap": 1.0,              # critical: prevents nodes touching
+                },
                 "stabilization": {
                     "enabled": True,
-                    "iterations": 250,     # more iterations = better initial layout
-                    "updateInterval": 50,
+                    "iterations": 300,
+                    "updateInterval": 25,
                     "fit": True,
                 },
-                "maxVelocity": 60,
-                "minVelocity": 0.4,
-                "timestep": 0.3,
+                "maxVelocity": 100,
+                "minVelocity": 1.0,
+                "timestep": 0.5,
             },
         }))
     except Exception:
@@ -290,10 +293,11 @@ def pyvis_network(
         comm = int(communities.get(node, 0))
         is_hl = (node == highlight_node)
 
-        # Power-scaled size: wider spread than log alone
-        # Range roughly 6–56; hub nodes are visually dominant
+        # Log-scaled size: range ~4–16px — small enough that avoidOverlap works
+        # With Barnes-Hut avoidOverlap:1, node pixel radius is factored into
+        # repulsion, so keeping sizes small lets the engine space them properly.
         ratio = math.log1p(wd) / math.log1p(max_wdeg)
-        size  = 6 + 50 * (ratio ** 0.75)
+        size  = 4 + 12 * (ratio ** 0.6)
 
         base_color = _node_color(comm)
         border_color = "rgba(255,255,255,0.18)"
@@ -301,7 +305,7 @@ def pyvis_network(
         if is_hl:
             base_color   = "#FFD700"
             border_color = "#FFD700"
-            size = max(size, 32)
+            size = max(size, 18)
 
         label = str(node) if node in top_n else ""
         deg   = G.degree(node)
@@ -349,8 +353,8 @@ def pyvis_network(
 
     for u, v, d in G.edges(data=True):
         w = d.get("weight", 1)
-        # Scale to 1–8 for edge thickness
-        scaled_value = 1 + 7 * math.log1p(w) / math.log1p(max_ew)
+        # Scale to 1–4 for edge thickness (thinner edges = less visual clutter)
+        scaled_value = 1 + 3 * math.log1p(w) / math.log1p(max_ew)
         edge_title = (
             f"<div style='background:#1A2438;padding:7px 11px;border-radius:5px;"
             f"font-family:Inter,Arial,sans-serif;font-size:11px;'>"

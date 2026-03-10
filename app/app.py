@@ -660,7 +660,7 @@ elif section == "🧩 Communities":
             html = pyvis_network(
                 sub_G, communities,
                 height="520px",
-                label_top_n=10,
+                label_top_n=6,
             )
             components.html(html, height=540, scrolling=False)
 

@@ -155,24 +155,21 @@ def sankey_flow(
 
     # Node colors — community-tinted for senders, muted for pure recipients
     _comm_palette = PYVIS_COMMUNITY_COLORS
+    def _hex_to_rgba(h: str, a: float) -> str:
+        return f"rgba({int(h[1:3],16)},{int(h[3:5],16)},{int(h[5:7],16)},{a})"
+
     node_colors = []
     for n in all_nodes:
         comm = communities.get(n, -1) if communities else -1
-        if comm >= 0:
-            node_colors.append(_comm_palette[comm % len(_comm_palette)] + "CC")
-        else:
-            node_colors.append("#374357CC")
+        base = _comm_palette[comm % len(_comm_palette)] if comm >= 0 else "#374357"
+        node_colors.append(_hex_to_rgba(base, 0.85))
 
     # Link colors — match sender node, semi-transparent
     link_colors = []
     for s, _, _ in sorted_edges:
         comm = communities.get(s, -1) if communities else -1
-        base = (_comm_palette[comm % len(_comm_palette)] if comm >= 0 else "#374357")
-        # Convert hex to rgba with low opacity for subtle links
-        r = int(base[1:3], 16)
-        g = int(base[3:5], 16)
-        b = int(base[5:7], 16)
-        link_colors.append(f"rgba({r},{g},{b},0.35)")
+        base = _comm_palette[comm % len(_comm_palette)] if comm >= 0 else "#374357"
+        link_colors.append(_hex_to_rgba(base, 0.35))
 
     fig = go.Figure(data=[go.Sankey(
         arrangement="snap",

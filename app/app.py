@@ -674,7 +674,7 @@ with tab_ego:
 
     col_sel, col_rad, _ = st.columns([3, 1, 2])
     with col_sel:
-        ego_node = st.selectbox("Select participant", all_nodes_sorted)
+        ego_node = st.selectbox("Select participant", all_nodes_sorted, key="ego_node_select")
     with col_rad:
         radius = st.radio("Radius", [1, 2], horizontal=True)
 
@@ -807,7 +807,7 @@ with tab_rel:
         ).index.tolist()
         _, col_sel, _ = st.columns([1, 3, 2])
         with col_sel:
-            sel = st.selectbox("Select participant", all_nodes_sorted)
+            sel = st.selectbox("Select participant", all_nodes_sorted, key="rel_node_select")
 
         contacts = {}
         for u, v, d in G.edges(data=True):

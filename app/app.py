@@ -6,8 +6,13 @@ Run with:
 """
 
 import math
+import sys
 from collections import Counter
 from pathlib import Path
+
+# Ensure the app/ directory is on sys.path so `utils` resolves correctly
+# regardless of the working directory (local vs Streamlit Cloud).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import networkx as nx
 import numpy as np

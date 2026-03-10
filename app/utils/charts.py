@@ -239,9 +239,23 @@ def pyvis_network(
             "nodes": {
                 "font": {
                     "face": "Inter, Arial, sans-serif",
-                    "size": 12,
+                    "size": 13,
                     "strokeWidth": 3,
                     "strokeColor": "#0B0F17",
+                },
+                # scaling.label makes vis.js scale font size with zoom level.
+                # drawThreshold: labels are hidden when their canvas pixel size
+                # drops below this value (i.e. zoomed out) — reduces clutter.
+                # They reappear as you zoom in. Top-N nodes still show first
+                # because only they have label text set; minor nodes stay empty.
+                "scaling": {
+                    "label": {
+                        "enabled": True,
+                        "min": 8,
+                        "max": 20,
+                        "maxVisible": 20,
+                        "drawThreshold": 9,
+                    }
                 },
                 "shadow": {"enabled": True, "size": 8, "color": "rgba(0,0,0,0.6)"},
             },

@@ -465,9 +465,9 @@ elif section == "🌐 Network Graph":
             help="Hide edges with fewer messages than this threshold.",
         )
         max_nodes = st.slider(
-            "Max nodes shown", 10, min(200, summary["num_nodes"]),
+            "Max nodes shown", 10, min(500, summary["num_nodes"]),
             min(50, summary["num_nodes"]),
-            help="Show only the top-N most connected nodes. Lower = cleaner graph.",
+            help="Show only the top-N most connected nodes by message weight. Lower = cleaner graph, faster render.",
         )
         giant_only = st.checkbox(
             "Giant component only", value=True,

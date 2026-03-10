@@ -21,11 +21,9 @@ from utils.graph_builder import (
     graph_summary, get_ego_graph,
 )
 from utils.charts import (
-    bar_chart, community_size_chart, heatmap, pyvis_network,
+    bar_chart, community_size_chart, sankey_flow, pyvis_network,
 )
-from utils.network_views import (
-    filter_graph, build_interaction_matrix,
-)
+from utils.network_views import filter_graph
 
 # =========================================================================
 # Page config
@@ -768,27 +766,40 @@ with tab_rel:
 
     mode = st.radio(
         "View mode",
-        ["Top-N interaction matrix", "Node spotlight"],
+        ["Top flows (Sankey)", "Node spotlight"],
         horizontal=True,
     )
 
-    if mode == "Top-N interaction matrix":
+    if mode == "Top flows (Sankey)":
         _, col_n, _ = st.columns([1, 2, 3])
         with col_n:
-            n = st.slider("Top N nodes", 5, 30, 15)
-        top_nodes = display_metrics_df.nlargest(n, "weighted_degree").index.tolist()
-        matrix = build_interaction_matrix(G, top_nodes)
-        fig = heatmap(
-            matrix,
-            title=f"Message Volume — Top {n} participants",
-            height=max(430, n * 32),
+            n_flows = st.slider(
+                "Top N flows", 10, 60, 30,
+                help="Show the N strongest sender → recipient message flows.",
+            )
+        all_edges = [
+            (u, v, d.get("weight", 1))
+            for u, v, d in G.edges(data=True)
+            if u not in AGGREGATE_NODES and v not in AGGREGATE_NODES
+        ]
+        fig = sankey_flow(
+            all_edges,
+            communities=communities,
+            top_n=n_flows,
+            title=f"Top {n_flows} Message Flows",
+            height=max(500, n_flows * 16),
         )
-        st.plotly_chart(fig, width='stretch', key="rel_heatmap")
+        st.plotly_chart(fig, width='stretch', key="rel_sankey")
 
-        with st.expander("⬇ Download interaction matrix"):
+        with st.expander("⬇ Download flow data"):
+            flow_df = (
+                pd.DataFrame(all_edges, columns=["sender", "recipient", "messages"])
+                .sort_values("messages", ascending=False)
+                .head(n_flows)
+            )
             st.download_button(
-                "Download CSV", matrix.to_csv(),
-                "interaction_matrix.csv", "text/csv",
+                "Download CSV", flow_df.to_csv(index=False),
+                "top_flows.csv", "text/csv",
             )
     else:
         all_nodes_sorted = display_metrics_df.sort_values(

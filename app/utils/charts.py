@@ -126,8 +126,86 @@ def heatmap(matrix: pd.DataFrame, title: str = "Interaction Matrix",
 
 
 # ---------------------------------------------------------------------------
-# Timeline
+# Sankey flow diagram
 # ---------------------------------------------------------------------------
+
+def sankey_flow(
+    edges: list[tuple],
+    communities: dict | None = None,
+    top_n: int = 30,
+    title: str = "Message Flow",
+    height: int = 560,
+) -> go.Figure:
+    """
+    Build a Sankey diagram from a list of (sender, recipient, weight) tuples.
+    Shows the strongest top_n flows; link color = sender's community color.
+    """
+    # Sort and take top N by weight
+    sorted_edges = sorted(edges, key=lambda x: x[2], reverse=True)[:top_n]
+    if not sorted_edges:
+        return go.Figure()
+
+    # Build ordered node list preserving left=senders / right=recipients feel.
+    # Senders appear first in the list so Plotly places them on the left.
+    senders   = list(dict.fromkeys(e[0] for e in sorted_edges))
+    recipients = [e[1] for e in sorted_edges if e[1] not in senders]
+    recipients = list(dict.fromkeys(recipients))
+    all_nodes = senders + recipients
+    node_idx  = {n: i for i, n in enumerate(all_nodes)}
+
+    # Node colors — community-tinted for senders, muted for pure recipients
+    _comm_palette = PYVIS_COMMUNITY_COLORS
+    node_colors = []
+    for n in all_nodes:
+        comm = communities.get(n, -1) if communities else -1
+        if comm >= 0:
+            node_colors.append(_comm_palette[comm % len(_comm_palette)] + "CC")
+        else:
+            node_colors.append("#374357CC")
+
+    # Link colors — match sender node, semi-transparent
+    link_colors = []
+    for s, _, _ in sorted_edges:
+        comm = communities.get(s, -1) if communities else -1
+        base = (_comm_palette[comm % len(_comm_palette)] if comm >= 0 else "#374357")
+        # Convert hex to rgba with low opacity for subtle links
+        r = int(base[1:3], 16)
+        g = int(base[3:5], 16)
+        b = int(base[5:7], 16)
+        link_colors.append(f"rgba({r},{g},{b},0.35)")
+
+    fig = go.Figure(data=[go.Sankey(
+        arrangement="snap",
+        node=dict(
+            pad=18,
+            thickness=14,
+            line=dict(color="rgba(255,255,255,0.08)", width=0.5),
+            label=all_nodes,
+            color=node_colors,
+            hovertemplate="<b>%{label}</b><br>Flow: %{value:,}<extra></extra>",
+        ),
+        link=dict(
+            source=[node_idx[s] for s, _, _ in sorted_edges],
+            target=[node_idx[t] for _, t, _ in sorted_edges],
+            value=[w for _, _, w in sorted_edges],
+            color=link_colors,
+            hovertemplate=(
+                "<b>%{source.label}</b> → <b>%{target.label}</b><br>"
+                "Messages: <b>%{value:,}</b><extra></extra>"
+            ),
+        ),
+    )])
+
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor=BG,
+        plot_bgcolor=BG,
+        title=dict(text=title, font=dict(size=14, color=TEXT)),
+        font=dict(size=11, color=MUTED),
+        margin=dict(l=20, r=20, t=50, b=20),
+        height=height,
+    )
+    return fig
 
 
 # ---------------------------------------------------------------------------

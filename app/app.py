@@ -252,6 +252,11 @@ comm_counts   = Counter(communities.values())
 
 metrics_df["community"] = metrics_df.index.map(lambda n: communities.get(n, -1))
 
+# Aggregate/catch-all nodes — kept in the graph for structural accuracy but
+# excluded from ranked tables, selectors, and key metric displays.
+AGGREGATE_NODES = {"Redacted/Unknown", "unknown"}
+display_metrics_df = metrics_df[~metrics_df.index.isin(AGGREGATE_NODES)]
+
 has_dates = (
     "datetime" in edges_df.columns
     and edges_df["datetime"].notna().sum() > 10
@@ -408,7 +413,7 @@ if section == "📊 Overview":
     with col_a:
         st.subheader("Top Senders")
         top_out = (
-            metrics_df.nlargest(10, "out_weighted")[["out_weighted", "out_degree", "community"]]
+            display_metrics_df.nlargest(10, "out_weighted")[["out_weighted", "out_degree", "community"]]
             .rename(columns={"out_weighted": "Sent", "out_degree": "Recipients", "community": "Comm"})
         )
         top_out.index.name = "Node"
@@ -425,7 +430,7 @@ if section == "📊 Overview":
     with col_b:
         st.subheader("Top Recipients")
         top_in = (
-            metrics_df.nlargest(10, "in_weighted")[["in_weighted", "in_degree", "community"]]
+            display_metrics_df.nlargest(10, "in_weighted")[["in_weighted", "in_degree", "community"]]
             .rename(columns={"in_weighted": "Received", "in_degree": "Senders", "community": "Comm"})
         )
         top_in.index.name = "Node"
@@ -542,7 +547,7 @@ elif section == "🏆 Top Nodes":
     with col_n:
         n_show = st.slider("Show top", 10, 50, 20)
 
-    top = metrics_df.nlargest(n_show, metric_choice).sort_values(metric_choice, ascending=True)
+    top = display_metrics_df.nlargest(n_show, metric_choice).sort_values(metric_choice, ascending=True)
 
     fig = bar_chart(
         top.reset_index(),
@@ -558,7 +563,7 @@ elif section == "🏆 Top Nodes":
         "degree", "weighted_degree", "in_weighted", "out_weighted",
         "betweenness", "eigenvector", "community",
     ]
-    table = metrics_df.nlargest(n_show, metric_choice)[display_cols]
+    table = display_metrics_df.nlargest(n_show, metric_choice)[display_cols]
     table.index.name = "Node"
 
     st.dataframe(
@@ -615,7 +620,7 @@ elif section == "🧩 Communities":
 
     members = [n for n, c in communities.items() if c == selected_comm]
     member_metrics = (
-        metrics_df.loc[metrics_df.index.isin(members)]
+        display_metrics_df.loc[display_metrics_df.index.isin(members)]
         .sort_values("weighted_degree", ascending=False)
     )
 
@@ -673,7 +678,7 @@ elif section == "👤 Ego Network":
         "Radius 1 = direct contacts only · radius 2 = contacts-of-contacts."
     )
 
-    all_nodes_sorted = metrics_df.sort_values("weighted_degree", ascending=False).index.tolist()
+    all_nodes_sorted = display_metrics_df.sort_values("weighted_degree", ascending=False).index.tolist()
     col_sel, col_rad = st.columns([3, 1])
     with col_sel:
         ego_node = st.selectbox("Select participant", all_nodes_sorted)
@@ -775,7 +780,7 @@ elif section == "🔥 Relationships":
 
     if mode == "Top-N interaction matrix":
         n = st.slider("Top N nodes", 5, 30, 15)
-        top_nodes = metrics_df.nlargest(n, "weighted_degree").index.tolist()
+        top_nodes = display_metrics_df.nlargest(n, "weighted_degree").index.tolist()
         matrix = build_interaction_matrix(G, top_nodes)
         fig = heatmap(
             matrix,
@@ -790,7 +795,7 @@ elif section == "🔥 Relationships":
                 "interaction_matrix.csv", "text/csv",
             )
     else:
-        all_nodes_sorted = metrics_df.sort_values("weighted_degree", ascending=False).index.tolist()
+        all_nodes_sorted = display_metrics_df.sort_values("weighted_degree", ascending=False).index.tolist()
         sel = st.selectbox("Select participant", all_nodes_sorted)
 
         contacts = {}

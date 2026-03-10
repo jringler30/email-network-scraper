@@ -417,7 +417,7 @@ with tab_overview:
                 "Recipients": st.column_config.NumberColumn("Recipients", format="%d"),
                 "Comm":       st.column_config.NumberColumn("Community",  format="%d"),
             },
-            use_container_width=True,
+            width='stretch',
         )
 
     with col_b:
@@ -435,13 +435,13 @@ with tab_overview:
                 "Senders":  st.column_config.NumberColumn("Senders",   format="%d"),
                 "Comm":     st.column_config.NumberColumn("Community", format="%d"),
             },
-            use_container_width=True,
+            width='stretch',
         )
 
     st.divider()
     st.subheader(f"Community Distribution — {len(comm_counts)} communities (Louvain)")
     fig = community_size_chart(sorted(comm_counts.values(), reverse=True))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch', key="overview_comm_chart")
 
 
 # =========================================================================
@@ -553,7 +553,7 @@ with tab_top:
         horizontal=True,
         height=max(380, n_show * 22),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch', key="top_nodes_bar")
 
     st.subheader("Full Metrics Table")
     display_cols = [
@@ -573,7 +573,7 @@ with tab_top:
             "eigenvector":     st.column_config.NumberColumn("Eigenvector",   format="%.4f"),
             "community":       st.column_config.NumberColumn("Community",     format="%d"),
         },
-        use_container_width=True,
+        width='stretch',
     )
     st.download_button(
         "⬇ Download CSV", table.to_csv(), "top_nodes.csv", "text/csv",
@@ -603,7 +603,7 @@ with tab_comm:
 
     st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
     fig = community_size_chart(sorted(comm_counts.values(), reverse=True))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch', key="comm_tab_dist_chart")
 
     st.divider()
     st.subheader("Explore a Community")
@@ -645,7 +645,7 @@ with tab_comm:
             "out_weighted":    st.column_config.NumberColumn("Sent",        format="%d"),
             "betweenness":     st.column_config.NumberColumn("Betweenness", format="%.4f"),
         },
-        use_container_width=True,
+        width='stretch',
     )
 
     with st.expander("🌐 View community subgraph (PyVis)"):
@@ -735,7 +735,7 @@ with tab_ego:
                         "incoming": st.column_config.NumberColumn("Received", format="%d"),
                         "total":    st.column_config.NumberColumn("Total",    format="%d"),
                     },
-                    use_container_width=True,
+                    width='stretch',
                     hide_index=True,
                 )
 
@@ -783,7 +783,7 @@ with tab_rel:
             title=f"Message Volume — Top {n} participants",
             height=max(430, n * 32),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch', key="rel_heatmap")
 
         with st.expander("⬇ Download interaction matrix"):
             st.download_button(
@@ -817,11 +817,11 @@ with tab_rel:
                 horizontal=True,
                 height=max(320, len(cdf) * 26),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch', key="rel_spotlight_bar")
             st.dataframe(
                 cdf,
                 column_config={"messages": st.column_config.NumberColumn("Messages", format="%d")},
-                use_container_width=True,
+                width='stretch',
                 hide_index=True,
             )
         else:
@@ -841,7 +841,7 @@ with tab_rel:
     st.dataframe(
         strong_df,
         column_config={"messages": st.column_config.NumberColumn("Messages", format="%d")},
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
     )
     st.download_button(

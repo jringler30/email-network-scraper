@@ -140,20 +140,20 @@ def pyvis_network(
     highlight_node: str | None = None,
     height: str = "660px",
     label_top_n: int = 6,
-    precomputed_pos: dict | None = None,
+    stable_mode: bool = False,
 ) -> str:
     """
     Build a PyVis interactive network and return its HTML string.
     Embeds via st.components.v1.html().
 
-    - Node size        : log-scaled weighted degree
-    - Node color       : top-8 communities get distinct colors; minor ones muted
-    - Edge thickness   : proportional to message weight
-    - Labels           : top-N nodes only (low default to reduce clutter)
-    - Physics          : Barnes-Hut with avoidOverlap (main graph)
-    - precomputed_pos  : dict {node: (x_px, y_px)} — disables physics entirely,
-                         gives a stable static layout (used for ego network)
-    - Click behavior   : neighborhood_highlight dims non-neighbors on click
+    - Node size     : log-scaled weighted degree
+    - Node color    : top-8 communities get distinct colors; minor ones muted
+    - Edge thickness: proportional to message weight
+    - Labels        : top-N nodes only; zoom-aware via scaling.label
+    - Physics       : Barnes-Hut; both modes freeze physics after stabilization
+    - stable_mode   : True for ego network — much gentler physics, higher
+                      damping, more stabilization iterations; settles fast
+    - Click behavior: neighborhood_highlight dims non-neighbors on click
     """
     try:
         from pyvis.network import Network
@@ -204,34 +204,56 @@ def pyvis_network(
         neighborhood_highlight=True,
     )
 
-    # ── Physics + options ─────────────────────────────────────────────────
-    # When precomputed_pos is provided (ego network), physics is disabled
-    # entirely — nodes are pinned at their precomputed coordinates.
-    # Without it (main graph), Barnes-Hut with avoidOverlap:1 is used so
-    # nodes genuinely cannot touch (vis.js factors in pixel radius).
-    _physics_opts: dict
-    if precomputed_pos is not None:
-        _physics_opts = {"enabled": False}
-    else:
+    # ── Physics presets ────────────────────────────────────────────────────
+    # Both modes use Barnes-Hut and freeze physics via JS after stabilization
+    # so the graph holds its position once settled. Users can still drag and
+    # zoom; just no autonomous movement after the initial layout pass.
+    #
+    # stable_mode=True  (ego network): very high damping, low velocity cap,
+    #   many iterations — settles in ~1s, looks calm from the start.
+    # stable_mode=False (main graph): moderate settings tuned so adding more
+    #   nodes doesn't cause violent jumping; less repulsion, more friction.
+    if stable_mode:
         _physics_opts = {
             "solver": "barnesHut",
             "barnesHut": {
-                "gravitationalConstant": -60000,
-                "centralGravity": 0.05,
-                "springLength": 200,
-                "springConstant": 0.04,
-                "damping": 0.1,
+                "gravitationalConstant": -8000,   # gentle repulsion
+                "centralGravity": 0.3,            # pulls toward centre
+                "springLength": 120,
+                "springConstant": 0.08,
+                "damping": 0.8,                   # heavy friction → stops fast
                 "avoidOverlap": 1.0,
             },
             "stabilization": {
                 "enabled": True,
-                "iterations": 300,
-                "updateInterval": 25,
+                "iterations": 1000,               # fully settle before showing
+                "updateInterval": 50,
                 "fit": True,
             },
-            "maxVelocity": 100,
-            "minVelocity": 1.0,
-            "timestep": 0.5,
+            "maxVelocity": 15,
+            "minVelocity": 3.0,                   # stop threshold — exits early
+            "timestep": 0.3,
+        }
+    else:
+        _physics_opts = {
+            "solver": "barnesHut",
+            "barnesHut": {
+                "gravitationalConstant": -15000,  # was -60000 → much calmer
+                "centralGravity": 0.15,           # moderate center pull
+                "springLength": 150,
+                "springConstant": 0.05,
+                "damping": 0.5,                   # was 0.1 → 5× more friction
+                "avoidOverlap": 1.0,
+            },
+            "stabilization": {
+                "enabled": True,
+                "iterations": 500,                # was 300
+                "updateInterval": 100,            # less frequent = less flicker
+                "fit": True,
+            },
+            "maxVelocity": 30,                    # was 100 → nodes can't fly
+            "minVelocity": 2.0,
+            "timestep": 0.35,                     # was 0.5 → more stable sim
         }
 
     try:
@@ -331,7 +353,8 @@ def pyvis_network(
             f"</div>"
         )
 
-        node_kwargs: dict = dict(
+        net.add_node(
+            node,
             label=label,
             size=float(size),
             color={
@@ -344,13 +367,6 @@ def pyvis_network(
             borderWidth=1,
             borderWidthSelected=3,
         )
-        if precomputed_pos is not None and node in precomputed_pos:
-            px, py = precomputed_pos[node]
-            node_kwargs["x"] = float(px)
-            node_kwargs["y"] = float(py)
-            node_kwargs["physics"] = False  # pin node at its position
-
-        net.add_node(node, **node_kwargs)
 
     # ── Add edges ─────────────────────────────────────────────────────────
     # Clamp value to 1–8 range so very high-weight edges don't dominate visually
@@ -414,6 +430,23 @@ def pyvis_network(
 </style>
 """
     html = html.replace("</head>", theme_css + "</head>", 1)
+
+    # Inject JS to freeze physics once the initial stabilization pass completes.
+    # The graph settles into its layout, then stops moving — hover/drag/zoom
+    # still work normally. Without this, ongoing Barnes-Hut forces cause
+    # constant low-level jitter, especially with higher node counts.
+    freeze_js = """
+<script>
+  setTimeout(function() {
+    if (typeof network !== 'undefined') {
+      network.once('stabilizationIterationsDone', function() {
+        network.setOptions({ physics: { enabled: false } });
+      });
+    }
+  }, 0);
+</script>
+"""
+    html = html.replace("</body>", freeze_js + "</body>", 1)
     return html
 
 

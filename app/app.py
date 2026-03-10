@@ -750,24 +750,12 @@ elif section == "👤 Ego Network":
                     top.append(ego_node)
                 ego_G = ego_G.subgraph(top).copy()
 
-            # Precompute a stable spring layout so the ego graph renders
-            # immediately without jitter. k controls ideal edge length;
-            # larger k = more spread. seed=42 gives deterministic results.
-            _n = ego_G.number_of_nodes()
-            _k = max(2.5 / (_n ** 0.5), 0.5) if _n > 1 else 1.0
-            raw_pos = nx.spring_layout(
-                ego_G, weight="weight", k=_k, iterations=120, seed=42
-            )
-            # Scale to pixel coordinates (~±500px from centre)
-            scale = 500
-            ego_pos = {node: (x * scale, y * scale) for node, (x, y) in raw_pos.items()}
-
             html = pyvis_network(
                 ego_G, communities,
                 highlight_node=ego_node,
                 height="480px",
                 label_top_n=8,
-                precomputed_pos=ego_pos,
+                stable_mode=True,
             )
             components.html(html, height=500, scrolling=False)
 

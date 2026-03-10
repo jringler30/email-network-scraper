@@ -21,8 +21,7 @@ from utils.graph_builder import (
     graph_summary, get_ego_graph,
 )
 from utils.charts import (
-    bar_chart, community_size_chart, heatmap,
-    timeline_chart, cumulative_chart, pyvis_network,
+    bar_chart, community_size_chart, heatmap, pyvis_network,
 )
 from utils.network_views import (
     filter_graph, build_interaction_matrix,
@@ -342,7 +341,6 @@ with st.sidebar:
             "🧩 Communities",
             "👤 Ego Network",
             "🔥 Relationships",
-            "📅 Timeline",
         ],
         label_visibility="collapsed",
     )
@@ -752,11 +750,24 @@ elif section == "👤 Ego Network":
                     top.append(ego_node)
                 ego_G = ego_G.subgraph(top).copy()
 
+            # Precompute a stable spring layout so the ego graph renders
+            # immediately without jitter. k controls ideal edge length;
+            # larger k = more spread. seed=42 gives deterministic results.
+            _n = ego_G.number_of_nodes()
+            _k = max(2.5 / (_n ** 0.5), 0.5) if _n > 1 else 1.0
+            raw_pos = nx.spring_layout(
+                ego_G, weight="weight", k=_k, iterations=120, seed=42
+            )
+            # Scale to pixel coordinates (~±500px from centre)
+            scale = 500
+            ego_pos = {node: (x * scale, y * scale) for node, (x, y) in raw_pos.items()}
+
             html = pyvis_network(
                 ego_G, communities,
                 highlight_node=ego_node,
                 height="480px",
                 label_top_n=8,
+                precomputed_pos=ego_pos,
             )
             components.html(html, height=500, scrolling=False)
 
@@ -846,72 +857,3 @@ elif section == "🔥 Relationships":
     )
 
 
-# =========================================================================
-# Section: Timeline
-# =========================================================================
-elif section == "📅 Timeline":
-    st.header("Activity Timeline")
-    _section_note("Message volume and new relationship formation over time.")
-
-    if not has_dates:
-        # Graceful no-data card
-        st.markdown(
-            f"""
-<div style='background:#141A23;border:1px solid rgba(255,107,107,0.3);
-border-left:3px solid #FF6B6B;border-radius:8px;padding:20px 24px;
-margin-top:12px;'>
-  <div style='color:#FF6B6B;font-weight:700;font-size:0.95rem;margin-bottom:6px;'>
-    📅 No timestamp data available
-  </div>
-  <div style='color:#8899AA;font-size:0.83rem;line-height:1.7;'>
-    The edge data does not contain a recognised <code style='color:#E6EDF3;'>datetime</code>
-    column, or fewer than 10 valid timestamps were found.<br><br>
-    To enable the timeline, ensure the CSV has a column named
-    <code style='color:#E6EDF3;'>datetime</code>, <code style='color:#E6EDF3;'>date</code>,
-    or <code style='color:#E6EDF3;'>timestamp</code> with parseable date values.
-  </div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-    else:
-        valid = edges_df["datetime"].dropna()
-
-        c1, c2, c3 = st.columns(3)
-        c1.markdown(_kpi("First Message", date_min.strftime("%b %d, %Y"), color="#4FC3F7"),
-                    unsafe_allow_html=True)
-        c2.markdown(_kpi("Last Message", date_max.strftime("%b %d, %Y"), color="#4FC3F7"),
-                    unsafe_allow_html=True)
-        span_days = (date_max - date_min).days
-        c3.markdown(_kpi("Active Span", f"{span_days:,} days", color="#4FC3F7"),
-                    unsafe_allow_html=True)
-
-        st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
-
-        freq = st.radio("Aggregation", ["Month", "Week", "Day"], horizontal=True)
-        freq_map = {"Month": "M", "Week": "W", "Day": "D"}
-
-        fig = timeline_chart(valid, freq=freq_map[freq],
-                             title=f"Email Volume by {freq}")
-        st.plotly_chart(fig, use_container_width=True)
-
-        fig2 = cumulative_chart(valid, title="Cumulative Messages Over Time")
-        st.plotly_chart(fig2, use_container_width=True)
-
-        st.subheader("New Relationships Over Time")
-        _section_note("When each unique sender → recipient pair first appeared.")
-        first_seen = (
-            edges_df.dropna(subset=["datetime"])
-            .sort_values("datetime")
-            .assign(pair=lambda df: df["sender"] + " → " + df["recipient"])
-            .drop_duplicates("pair")
-        )
-        if len(first_seen) > 1:
-            fig3 = timeline_chart(
-                first_seen["datetime"],
-                freq=freq_map[freq],
-                title=f"New Unique Relationships by {freq}",
-            )
-            st.plotly_chart(fig3, use_container_width=True)
-        else:
-            st.info("Not enough relationship data to plot this chart.")

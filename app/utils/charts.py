@@ -129,30 +129,6 @@ def heatmap(matrix: pd.DataFrame, title: str = "Interaction Matrix",
 # Timeline
 # ---------------------------------------------------------------------------
 
-def timeline_chart(dates: pd.Series, freq: str = "M",
-                   title: str = "Email Activity Over Time") -> go.Figure:
-    counts = dates.dt.to_period(freq).value_counts().sort_index()
-    df = pd.DataFrame({"period": counts.index.astype(str), "count": counts.values})
-    fig = px.area(df, x="period", y="count", color_discrete_sequence=[ACCENT])
-    fig.update_traces(
-        line=dict(width=2, color=ACCENT),
-        fillcolor="rgba(0,229,168,0.10)",
-    )
-    fig.update_xaxes(title="Period", tickangle=40, tickfont=dict(size=10))
-    fig.update_yaxes(title="Messages")
-    return _dark_layout(fig, title)
-
-
-def cumulative_chart(dates: pd.Series,
-                     title: str = "Cumulative Messages Over Time") -> go.Figure:
-    s = dates.sort_values().reset_index(drop=True)
-    df = pd.DataFrame({"date": s, "cumulative": range(1, len(s) + 1)})
-    fig = px.line(df, x="date", y="cumulative",
-                  color_discrete_sequence=[SECONDARY])
-    fig.update_traces(line=dict(width=2))
-    fig.update_yaxes(title="Total Messages")
-    return _dark_layout(fig, title)
-
 
 # ---------------------------------------------------------------------------
 # PyVis network  (returns HTML string)
@@ -164,17 +140,20 @@ def pyvis_network(
     highlight_node: str | None = None,
     height: str = "660px",
     label_top_n: int = 6,
+    precomputed_pos: dict | None = None,
 ) -> str:
     """
     Build a PyVis interactive network and return its HTML string.
     Embeds via st.components.v1.html().
 
-    - Node size     : power-scaled weighted degree (wide spread)
-    - Node color    : top-8 communities get distinct colors; minor ones muted
-    - Edge thickness: proportional to message weight
-    - Labels        : top-N nodes only (low default to reduce clutter)
-    - Physics       : ForceAtlas2, high repulsion, overlap avoidance
-    - Click behavior: neighborhood_highlight dims non-neighbors on click
+    - Node size        : log-scaled weighted degree
+    - Node color       : top-8 communities get distinct colors; minor ones muted
+    - Edge thickness   : proportional to message weight
+    - Labels           : top-N nodes only (low default to reduce clutter)
+    - Physics          : Barnes-Hut with avoidOverlap (main graph)
+    - precomputed_pos  : dict {node: (x_px, y_px)} — disables physics entirely,
+                         gives a stable static layout (used for ego network)
+    - Click behavior   : neighborhood_highlight dims non-neighbors on click
     """
     try:
         from pyvis.network import Network
@@ -225,10 +204,36 @@ def pyvis_network(
         neighborhood_highlight=True,
     )
 
-    # ── Physics + options: Barnes-Hut with avoidOverlap ───────────────────
-    # avoidOverlap: 1.0 is the key — vis.js scales repulsion against each node's
-    # actual pixel radius, so nodes genuinely cannot touch regardless of size.
-    # ForceAtlas2's overlap param does not do this.
+    # ── Physics + options ─────────────────────────────────────────────────
+    # When precomputed_pos is provided (ego network), physics is disabled
+    # entirely — nodes are pinned at their precomputed coordinates.
+    # Without it (main graph), Barnes-Hut with avoidOverlap:1 is used so
+    # nodes genuinely cannot touch (vis.js factors in pixel radius).
+    _physics_opts: dict
+    if precomputed_pos is not None:
+        _physics_opts = {"enabled": False}
+    else:
+        _physics_opts = {
+            "solver": "barnesHut",
+            "barnesHut": {
+                "gravitationalConstant": -60000,
+                "centralGravity": 0.05,
+                "springLength": 200,
+                "springConstant": 0.04,
+                "damping": 0.1,
+                "avoidOverlap": 1.0,
+            },
+            "stabilization": {
+                "enabled": True,
+                "iterations": 300,
+                "updateInterval": 25,
+                "fit": True,
+            },
+            "maxVelocity": 100,
+            "minVelocity": 1.0,
+            "timestep": 0.5,
+        }
+
     try:
         net.set_options(json.dumps({
             "nodes": {
@@ -263,26 +268,7 @@ def pyvis_network(
                 "navigationButtons": False,
                 "keyboard": {"enabled": False},
             },
-            "physics": {
-                "solver": "barnesHut",
-                "barnesHut": {
-                    "gravitationalConstant": -60000,  # strong repulsion between all nodes
-                    "centralGravity": 0.05,           # very weak center pull
-                    "springLength": 200,              # resting edge length in pixels
-                    "springConstant": 0.04,           # spring stiffness (lower = looser)
-                    "damping": 0.1,                   # friction
-                    "avoidOverlap": 1.0,              # critical: prevents nodes touching
-                },
-                "stabilization": {
-                    "enabled": True,
-                    "iterations": 300,
-                    "updateInterval": 25,
-                    "fit": True,
-                },
-                "maxVelocity": 100,
-                "minVelocity": 1.0,
-                "timestep": 0.5,
-            },
+            "physics": _physics_opts,
         }))
     except Exception:
         pass
@@ -331,8 +317,7 @@ def pyvis_network(
             f"</div>"
         )
 
-        net.add_node(
-            node,
+        node_kwargs: dict = dict(
             label=label,
             size=float(size),
             color={
@@ -345,6 +330,13 @@ def pyvis_network(
             borderWidth=1,
             borderWidthSelected=3,
         )
+        if precomputed_pos is not None and node in precomputed_pos:
+            px, py = precomputed_pos[node]
+            node_kwargs["x"] = float(px)
+            node_kwargs["y"] = float(py)
+            node_kwargs["physics"] = False  # pin node at its position
+
+        net.add_node(node, **node_kwargs)
 
     # ── Add edges ─────────────────────────────────────────────────────────
     # Clamp value to 1–8 range so very high-weight edges don't dominate visually

@@ -75,7 +75,7 @@ st.markdown("""
   .block-container,
   [data-testid="stMainBlockContainer"] > div {
     background-color: #0B0F17 !important;
-    padding-top: 3.5rem !important;
+    padding-top: 1rem !important;
     padding-left: 2rem !important;
     padding-right: 2rem !important;
     max-width: 1600px;

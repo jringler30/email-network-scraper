@@ -163,17 +163,18 @@ def pyvis_network(
     communities: dict,
     highlight_node: str | None = None,
     height: str = "660px",
-    label_top_n: int = 15,
+    label_top_n: int = 6,
 ) -> str:
     """
     Build a PyVis interactive network and return its HTML string.
     Embeds via st.components.v1.html().
 
-    - Node size     : log-scaled weighted degree
-    - Node color    : community (distinct palette)
+    - Node size     : power-scaled weighted degree (wide spread)
+    - Node color    : top-8 communities get distinct colors; minor ones muted
     - Edge thickness: proportional to message weight
-    - Labels        : top-N nodes by weighted degree + highlight node
-    - Physics       : ForceAtlas2 (draggable, zoomable, settling)
+    - Labels        : top-N nodes only (low default to reduce clutter)
+    - Physics       : ForceAtlas2, high repulsion, overlap avoidance
+    - Click behavior: neighborhood_highlight dims non-neighbors on click
     """
     try:
         from pyvis.network import Network
@@ -184,6 +185,8 @@ def pyvis_network(
             "</div>"
         )
 
+    from collections import Counter as _Counter
+
     # ── Degree lookups ────────────────────────────────────────────────────
     wdeg = {n: G.degree(n, weight="weight") for n in G.nodes()}
     max_wdeg = max(wdeg.values()) if wdeg else 1
@@ -192,7 +195,26 @@ def pyvis_network(
     if highlight_node:
         top_n.add(highlight_node)
 
-    # ── Create network ────────────────────────────────────────────────────
+    # ── Community color strategy ──────────────────────────────────────────
+    # Top 8 communities by member count get distinct vivid colors.
+    # All smaller communities collapse to a single muted tone.
+    # This creates clear visual clusters without color noise.
+    _MUTED_COMM = "#374357"   # minor-community node color
+    _N_COLORED  = 8
+    comm_size   = _Counter(communities.values())
+    top_comms   = {
+        c: rank
+        for rank, c in enumerate(
+            sorted(comm_size.keys(), key=lambda c: comm_size[c], reverse=True)[:_N_COLORED]
+        )
+    }
+
+    def _node_color(comm_id: int) -> str:
+        if comm_id in top_comms:
+            return PYVIS_COMMUNITY_COLORS[top_comms[comm_id]]
+        return _MUTED_COMM
+
+    # ── Create network  (neighborhood_highlight = click dims non-neighbors) ─
     net = Network(
         height=height,
         width="100%",
@@ -200,93 +222,109 @@ def pyvis_network(
         bgcolor=PAGE_BG,
         font_color=TEXT,
         cdn_resources="remote",
+        neighborhood_highlight=True,
     )
 
-    # ── Physics: ForceAtlas2 ──────────────────────────────────────────────
+    # ── Physics: ForceAtlas2 — high repulsion, full overlap avoidance ─────
     net.force_atlas_2based(
-        gravity=-55,
-        central_gravity=0.005,
-        spring_length=130,
-        spring_strength=0.06,
-        damping=0.92,
-        overlap=0.4,
+        gravity=-90,           # was -55  → stronger repulsion
+        central_gravity=0.003, # was 0.005 → weaker pull to center
+        spring_length=170,     # was 130  → longer springs = more spread
+        spring_strength=0.04,  # was 0.06 → weaker springs = more spread
+        damping=0.88,
+        overlap=1.0,           # was 0.4  → full overlap avoidance
     )
 
-    # ── Interaction ───────────────────────────────────────────────────────
+    # ── Options: interaction + stabilization only (no physics override) ───
     try:
         net.set_options(json.dumps({
             "nodes": {
-                "font": {"face": "Inter, Arial, sans-serif"},
-                "shadow": {"enabled": True, "size": 8, "color": "rgba(0,0,0,0.6)"},
+                "font": {
+                    "face": "Inter, Arial, sans-serif",
+                    "strokeWidth": 3,
+                    "strokeColor": "#0B0F17",  # dark halo makes labels readable
+                },
+                "shadow": {"enabled": True, "size": 10, "color": "rgba(0,0,0,0.7)"},
             },
             "edges": {
-                "smooth": {"type": "continuous", "roundness": 0.25},
+                "smooth": {"type": "continuous", "roundness": 0.2},
                 "arrows": {
-                    "to": {
-                        "enabled": G.is_directed(),
-                        "scaleFactor": 0.4,
-                    }
+                    "to": {"enabled": G.is_directed(), "scaleFactor": 0.35}
                 },
                 "color": {
-                    "color": "#2A2A45",
+                    "color": "#3A405A",      # slightly brighter than before
                     "highlight": ACCENT,
                     "hover": SECONDARY,
-                    "opacity": 0.7,
+                    "opacity": 0.75,
                 },
-                "selectionWidth": 2,
-                "hoverWidth": 1.5,
+                "selectionWidth": 2.5,
+                "hoverWidth": 2,
             },
             "interaction": {
                 "hover": True,
                 "hoverConnectedEdges": True,
                 "tooltipDelay": 80,
                 "hideEdgesOnDrag": True,
-                "multiselect": True,
+                "multiselect": False,
                 "navigationButtons": False,
                 "keyboard": {"enabled": False},
             },
             "physics": {
                 "stabilization": {
                     "enabled": True,
-                    "iterations": 150,
-                    "updateInterval": 30,
+                    "iterations": 250,     # more iterations = better initial layout
+                    "updateInterval": 50,
                     "fit": True,
                 },
-                "maxVelocity": 50,
-                "minVelocity": 0.5,
-                "timestep": 0.35,
+                "maxVelocity": 60,
+                "minVelocity": 0.4,
+                "timestep": 0.3,
             },
         }))
     except Exception:
-        pass  # Fall back to default options if set_options fails
+        pass
 
     # ── Add nodes ─────────────────────────────────────────────────────────
     for node in G.nodes():
-        wd = wdeg.get(node, 1)
+        wd  = wdeg.get(node, 1)
         comm = int(communities.get(node, 0))
         is_hl = (node == highlight_node)
 
-        size = 8 + 32 * math.log1p(wd) / math.log1p(max_wdeg)
-        base_color = PYVIS_COMMUNITY_COLORS[comm % len(PYVIS_COMMUNITY_COLORS)]
+        # Power-scaled size: wider spread than log alone
+        # Range roughly 6–56; hub nodes are visually dominant
+        ratio = math.log1p(wd) / math.log1p(max_wdeg)
+        size  = 6 + 50 * (ratio ** 0.75)
+
+        base_color = _node_color(comm)
+        border_color = "rgba(255,255,255,0.18)"
+
         if is_hl:
-            base_color = "#FFD700"
-            size = max(size, 30)
+            base_color   = "#FFD700"
+            border_color = "#FFD700"
+            size = max(size, 32)
 
         label = str(node) if node in top_n else ""
-        deg = G.degree(node)
+        deg   = G.degree(node)
+        comm_label = (
+            f"Community {comm} "
+            f"({'top cluster' if comm in top_comms else 'minor cluster'})"
+        )
 
         title_html = (
             f"<div style='background:#1A2438;padding:10px 14px;border-radius:6px;"
-            f"border:1px solid rgba(255,255,255,0.1);min-width:170px;"
+            f"border:1px solid rgba(255,255,255,0.1);min-width:180px;"
             f"font-family:Inter,Arial,sans-serif;'>"
             f"<div style='color:{ACCENT};font-weight:700;font-size:13px;"
             f"margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.07);"
             f"padding-bottom:6px;'>{node}</div>"
-            f"<div style='color:{MUTED};font-size:11px;line-height:1.9;'>"
+            f"<div style='color:{MUTED};font-size:11px;line-height:2;'>"
             f"Connections: <span style='color:{TEXT};font-weight:600;'>{deg}</span><br>"
             f"Message weight: <span style='color:{TEXT};font-weight:600;'>{wd:,}</span><br>"
-            f"Community: <span style='color:{base_color};font-weight:600;'>{comm}</span>"
-            f"</div></div>"
+            f"<span style='color:{base_color};'>{comm_label}</span>"
+            f"</div>"
+            f"<div style='color:#8899AA;font-size:10px;margin-top:6px;'>"
+            f"Click node to focus neighbors</div>"
+            f"</div>"
         )
 
         net.add_node(
@@ -295,9 +333,9 @@ def pyvis_network(
             size=float(size),
             color={
                 "background": base_color,
-                "border": "rgba(255,255,255,0.15)",
+                "border": border_color,
                 "highlight": {"background": base_color, "border": "#FFD700"},
-                "hover": {"background": base_color, "border": SECONDARY},
+                "hover":     {"background": base_color, "border": SECONDARY},
             },
             title=title_html,
             borderWidth=1,
@@ -305,8 +343,14 @@ def pyvis_network(
         )
 
     # ── Add edges ─────────────────────────────────────────────────────────
+    # Clamp value to 1–8 range so very high-weight edges don't dominate visually
+    all_edge_weights = [d.get("weight", 1) for _, _, d in G.edges(data=True)]
+    max_ew = max(all_edge_weights) if all_edge_weights else 1
+
     for u, v, d in G.edges(data=True):
         w = d.get("weight", 1)
+        # Scale to 1–8 for edge thickness
+        scaled_value = 1 + 7 * math.log1p(w) / math.log1p(max_ew)
         edge_title = (
             f"<div style='background:#1A2438;padding:7px 11px;border-radius:5px;"
             f"font-family:Inter,Arial,sans-serif;font-size:11px;'>"
@@ -317,7 +361,7 @@ def pyvis_network(
             f"<span style='color:{ACCENT};font-weight:700;'>{w:,}</span>"
             f"</div>"
         )
-        net.add_edge(u, v, value=float(w), title=edge_title)
+        net.add_edge(u, v, value=float(scaled_value), title=edge_title)
 
     # ── Generate HTML and inject theme CSS ────────────────────────────────
     try:

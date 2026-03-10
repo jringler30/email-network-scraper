@@ -39,50 +39,77 @@ st.set_page_config(
 )
 
 # =========================================================================
-# Global CSS — dark analytics theme
+# Global CSS — forced dark analytics theme
+# Designed to hold regardless of Streamlit theme setting (light/dark/system).
+# All background rules use !important; text color scoped to .stApp to avoid
+# fighting Streamlit widget internals.
 # =========================================================================
 st.markdown("""
 <style>
-  /* ── Main backgrounds ─────────────────────────────────────────────── */
-  .stApp,
-  [data-testid="stAppViewContainer"],
-  [data-testid="stHeader"],
-  section[data-testid="stSidebar"] > div:first-child {
-    background-color: #0B0F17;
+  /* ── Force dark color scheme on browser root ──────────────────────── */
+  html {
+    color-scheme: dark !important;
+    background-color: #0B0F17 !important;
   }
-  [data-testid="stSidebar"] {
-    background-color: #0F1520;
-    border-right: 1px solid rgba(255,255,255,0.06);
-  }
-  .block-container {
-    padding-top: 1.4rem;
-    max-width: 1440px;
-    background-color: transparent;
+  body {
+    background-color: #0B0F17 !important;
+    color: #E6EDF3 !important;
   }
 
-  /* ── Typography ───────────────────────────────────────────────────── */
-  h1, h2, h3, h4, p, label, span, div {
-    color: #E6EDF3;
+  /* ── All main app containers ──────────────────────────────────────── */
+  .stApp,
+  [data-testid="stAppViewContainer"],
+  [data-testid="stMain"],
+  [data-testid="stMainBlockContainer"],
+  [data-testid="stHeader"],
+  [data-testid="stToolbar"],
+  [data-testid="stDecoration"],
+  [data-testid="stBottomBlockContainer"],
+  .main {
+    background-color: #0B0F17 !important;
   }
-  h2 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+
+  /* ── Block container (main content) ───────────────────────────────── */
+  .block-container,
+  [data-testid="stMainBlockContainer"] > div {
+    background-color: #0B0F17 !important;
+    padding-top: 1.4rem;
+    max-width: 1440px;
+  }
+
+  /* ── Sidebar ──────────────────────────────────────────────────────── */
+  [data-testid="stSidebar"],
+  [data-testid="stSidebar"] > div,
+  [data-testid="stSidebar"] > div > div,
+  section[data-testid="stSidebar"] > div:first-child {
+    background-color: #0F1520 !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
+  }
+
+  /* ── Scope text colors to app root (avoids overriding widgets) ─────── */
+  .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5 {
+    color: #E6EDF3 !important;
+  }
+  .stApp p { color: #C9D1D9 !important; }
+  .stApp label { color: #C9D1D9 !important; }
+  .stCaption, .caption-text { color: #8899AA !important; font-size: 0.82rem; }
+
+  /* ── Heading styles ───────────────────────────────────────────────── */
+  .stApp h2 {
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
     border-bottom: 1px solid rgba(255,255,255,0.06);
     padding-bottom: 0.45rem;
     margin-bottom: 1rem;
   }
-  h3 { font-size: 1rem; font-weight: 600; }
-  .stCaption, .caption-text { color: #8899AA !important; font-size: 0.82rem; }
+  .stApp h3 { font-size: 1rem !important; font-weight: 600 !important; }
 
-  /* ── Sidebar nav ──────────────────────────────────────────────────── */
-  [data-testid="stSidebar"] h1 {
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    color: #E6EDF3;
+  /* ── Sidebar typography ───────────────────────────────────────────── */
+  [data-testid="stSidebar"] h1,
+  [data-testid="stSidebar"] h2,
+  [data-testid="stSidebar"] h3 {
+    color: #E6EDF3 !important;
   }
-  /* Radio buttons */
   [data-testid="stRadio"] label {
     padding: 5px 0;
     color: #C9D1D9 !important;
@@ -91,61 +118,109 @@ st.markdown("""
   [data-testid="stRadio"] label:hover { color: #00E5A8 !important; }
 
   /* ── Dividers ─────────────────────────────────────────────────────── */
-  hr { border-color: rgba(255,255,255,0.06); margin: 0.8rem 0; }
+  hr { border-color: rgba(255,255,255,0.06) !important; margin: 0.8rem 0; }
 
-  /* ── Selectbox / sliders ──────────────────────────────────────────── */
-  [data-testid="stSelectbox"] > div { background: #141A23; border-radius: 6px; }
+  /* ── Input widgets — force dark backgrounds ───────────────────────── */
+  [data-testid="stSelectbox"] > div,
+  [data-baseweb="select"] > div,
+  [data-baseweb="input"],
+  [data-testid="stNumberInput"] input,
+  [data-testid="stTextInput"] input {
+    background-color: #141A23 !important;
+    color: #E6EDF3 !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    border-radius: 6px;
+  }
+  /* Dropdown list */
+  [data-baseweb="popover"] [data-baseweb="menu"],
+  [data-baseweb="popover"] ul {
+    background-color: #1A2233 !important;
+    color: #E6EDF3 !important;
+  }
+  [data-baseweb="popover"] li:hover {
+    background-color: #253043 !important;
+  }
+
+  /* ── Sliders ──────────────────────────────────────────────────────── */
   [data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] {
-    background-color: #00E5A8;
+    background-color: #00E5A8 !important;
+  }
+  [data-testid="stSlider"] [data-baseweb="slider"] div[data-testid="stSlider"] {
+    background-color: #1E2B3C !important;
   }
 
   /* ── DataFrames ───────────────────────────────────────────────────── */
   [data-testid="stDataFrame"] {
-    border: 1px solid rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
     border-radius: 8px;
     overflow: hidden;
+  }
+  [data-testid="stDataFrame"] [data-testid="stDataFrameResizable"] {
+    background-color: #0F1520 !important;
   }
 
   /* ── Expanders ────────────────────────────────────────────────────── */
   [data-testid="stExpander"] {
-    background: #141A23;
-    border: 1px solid rgba(255,255,255,0.06);
+    background-color: #141A23 !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
     border-radius: 8px;
+  }
+  [data-testid="stExpander"] summary {
+    color: #C9D1D9 !important;
   }
 
   /* ── Buttons ──────────────────────────────────────────────────────── */
-  [data-testid="stDownloadButton"] button {
-    background: #141A23;
-    border: 1px solid rgba(0,229,168,0.3);
-    color: #00E5A8;
+  [data-testid="stDownloadButton"] button,
+  [data-testid="stButton"] button {
+    background-color: #141A23 !important;
+    border: 1px solid rgba(0,229,168,0.3) !important;
+    color: #00E5A8 !important;
     border-radius: 6px;
     font-size: 0.82rem;
   }
-  [data-testid="stDownloadButton"] button:hover {
-    background: rgba(0,229,168,0.1);
-    border-color: #00E5A8;
+  [data-testid="stDownloadButton"] button:hover,
+  [data-testid="stButton"] button:hover {
+    background-color: rgba(0,229,168,0.1) !important;
+    border-color: #00E5A8 !important;
   }
 
-  /* ── Info / warning banners ───────────────────────────────────────── */
-  [data-testid="stAlert"] {
+  /* ── Alerts / info boxes ──────────────────────────────────────────── */
+  [data-testid="stAlert"],
+  [data-testid="stNotification"] {
+    background-color: #141A23 !important;
     border-radius: 8px;
-    background: #141A23 !important;
+    color: #C9D1D9 !important;
+  }
+
+  /* ── Checkbox ─────────────────────────────────────────────────────── */
+  [data-testid="stCheckbox"] label { color: #C9D1D9 !important; }
+  [data-testid="stCheckbox"] [data-baseweb="checkbox"] [data-checked="true"] {
+    background-color: #00E5A8 !important;
   }
 
   /* ── Tab styling ──────────────────────────────────────────────────── */
-  .stTabs [data-baseweb="tab-list"] { gap: 6px; background: transparent; }
+  .stTabs [data-baseweb="tab-list"] { gap: 6px; background: transparent !important; }
   .stTabs [data-baseweb="tab"] {
-    background: #141A23;
+    background-color: #141A23 !important;
     border-radius: 6px 6px 0 0;
     padding: 7px 18px;
-    color: #8899AA;
+    color: #8899AA !important;
     font-size: 0.85rem;
   }
   .stTabs [aria-selected="true"] {
-    background: #1E2B3C;
+    background-color: #1E2B3C !important;
     color: #00E5A8 !important;
     border-bottom: 2px solid #00E5A8;
   }
+
+  /* ── Metric (fallback if st.metric used) ─────────────────────────── */
+  div[data-testid="stMetric"] {
+    background-color: #141A23 !important;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  div[data-testid="stMetric"] label { color: #8899AA !important; }
+  div[data-testid="stMetric"] [data-testid="stMetricValue"] { color: #E6EDF3 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -392,9 +467,9 @@ elif section == "🌐 Network Graph":
             help="Hide edges with fewer messages than this threshold.",
         )
         max_nodes = st.slider(
-            "Max nodes shown", 20, min(300, summary["num_nodes"]),
-            min(80, summary["num_nodes"]),
-            help="Show only the top-N most connected nodes.",
+            "Max nodes shown", 10, min(200, summary["num_nodes"]),
+            min(50, summary["num_nodes"]),
+            help="Show only the top-N most connected nodes. Lower = cleaner graph.",
         )
         giant_only = st.checkbox(
             "Giant component only", value=True,
@@ -403,12 +478,15 @@ elif section == "🌐 Network Graph":
         all_nodes = sorted(G.nodes())
         search_node = st.selectbox(
             "Highlight node", ["(none)"] + all_nodes,
-            help="Highlight a specific node in gold and always show its label.",
+            help="Pin a node in gold. Clicking it in the graph dims non-neighbors.",
         )
         if search_node == "(none)":
             search_node = None
 
-        label_n = st.slider("Label top-N nodes", 5, 30, 12)
+        label_n = st.slider(
+            "Label top-N nodes", 3, 20, 6,
+            help="Only label the highest-weight nodes. Keep low to reduce clutter.",
+        )
 
     H = filter_graph(
         G, min_weight=min_weight, max_nodes=max_nodes,

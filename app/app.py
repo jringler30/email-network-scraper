@@ -1,5 +1,5 @@
 """
-Jmail Network Explorer — Interactive email network dashboard.
+Jmail Network Explorer — Interactive email network intelligence dashboard.
 
 Run with:
     streamlit run app/app.py
@@ -13,6 +13,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from utils.data_loader import load_all
 from utils.graph_builder import (
@@ -21,10 +22,10 @@ from utils.graph_builder import (
 )
 from utils.charts import (
     bar_chart, community_size_chart, heatmap,
-    timeline_chart, cumulative_chart, plotly_network,
+    timeline_chart, cumulative_chart, pyvis_network,
 )
 from utils.network_views import (
-    filter_graph, compute_layout, build_interaction_matrix,
+    filter_graph, build_interaction_matrix,
 )
 
 # =========================================================================
@@ -37,48 +38,114 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# =========================================================================
+# Global CSS — dark analytics theme
+# =========================================================================
 st.markdown("""
 <style>
-    /* KPI metric cards */
-    div[data-testid="stMetric"] {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-left: 3px solid #00d4aa;
-        border-radius: 6px;
-        padding: 12px 16px;
-    }
-    div[data-testid="stMetric"] label {
-        color: #aaaaaa;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-        font-size: 1.5rem;
-        font-weight: 600;
-    }
-    /* Page padding */
-    .block-container {
-        padding-top: 1.5rem;
-        max-width: 1400px;
-    }
-    /* Sidebar */
-    [data-testid="stSidebar"] h1 {
-        font-size: 1.1rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-    }
-    /* Section headers */
-    h2 {
-        font-weight: 600;
-        border-bottom: 1px solid rgba(255,255,255,0.07);
-        padding-bottom: 0.4rem;
-        margin-bottom: 1rem;
-    }
-    /* Subtler dividers */
-    hr { border-color: rgba(255,255,255,0.06); }
-    /* Tighter captions */
-    .stCaption { color: #888; }
+  /* ── Main backgrounds ─────────────────────────────────────────────── */
+  .stApp,
+  [data-testid="stAppViewContainer"],
+  [data-testid="stHeader"],
+  section[data-testid="stSidebar"] > div:first-child {
+    background-color: #0B0F17;
+  }
+  [data-testid="stSidebar"] {
+    background-color: #0F1520;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+  .block-container {
+    padding-top: 1.4rem;
+    max-width: 1440px;
+    background-color: transparent;
+  }
+
+  /* ── Typography ───────────────────────────────────────────────────── */
+  h1, h2, h3, h4, p, label, span, div {
+    color: #E6EDF3;
+  }
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 0.45rem;
+    margin-bottom: 1rem;
+  }
+  h3 { font-size: 1rem; font-weight: 600; }
+  .stCaption, .caption-text { color: #8899AA !important; font-size: 0.82rem; }
+
+  /* ── Sidebar nav ──────────────────────────────────────────────────── */
+  [data-testid="stSidebar"] h1 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #E6EDF3;
+  }
+  /* Radio buttons */
+  [data-testid="stRadio"] label {
+    padding: 5px 0;
+    color: #C9D1D9 !important;
+    font-size: 0.9rem;
+  }
+  [data-testid="stRadio"] label:hover { color: #00E5A8 !important; }
+
+  /* ── Dividers ─────────────────────────────────────────────────────── */
+  hr { border-color: rgba(255,255,255,0.06); margin: 0.8rem 0; }
+
+  /* ── Selectbox / sliders ──────────────────────────────────────────── */
+  [data-testid="stSelectbox"] > div { background: #141A23; border-radius: 6px; }
+  [data-testid="stSlider"] [data-baseweb="slider"] [role="slider"] {
+    background-color: #00E5A8;
+  }
+
+  /* ── DataFrames ───────────────────────────────────────────────────── */
+  [data-testid="stDataFrame"] {
+    border: 1px solid rgba(255,255,255,0.06) !important;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  /* ── Expanders ────────────────────────────────────────────────────── */
+  [data-testid="stExpander"] {
+    background: #141A23;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+  }
+
+  /* ── Buttons ──────────────────────────────────────────────────────── */
+  [data-testid="stDownloadButton"] button {
+    background: #141A23;
+    border: 1px solid rgba(0,229,168,0.3);
+    color: #00E5A8;
+    border-radius: 6px;
+    font-size: 0.82rem;
+  }
+  [data-testid="stDownloadButton"] button:hover {
+    background: rgba(0,229,168,0.1);
+    border-color: #00E5A8;
+  }
+
+  /* ── Info / warning banners ───────────────────────────────────────── */
+  [data-testid="stAlert"] {
+    border-radius: 8px;
+    background: #141A23 !important;
+  }
+
+  /* ── Tab styling ──────────────────────────────────────────────────── */
+  .stTabs [data-baseweb="tab-list"] { gap: 6px; background: transparent; }
+  .stTabs [data-baseweb="tab"] {
+    background: #141A23;
+    border-radius: 6px 6px 0 0;
+    padding: 7px 18px;
+    color: #8899AA;
+    font-size: 0.85rem;
+  }
+  .stTabs [aria-selected="true"] {
+    background: #1E2B3C;
+    color: #00E5A8 !important;
+    border-bottom: 2px solid #00E5A8;
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -87,15 +154,13 @@ st.markdown("""
 # Data loading
 # =========================================================================
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-
 data = load_all(DATA_DIR)
 edges_df = data["primary_edges"]
 
 if edges_df is None:
     st.error(
         "**No edge data found.** Place at least one of these files in `data/`:\n\n"
-        "- `data/cleaned_edges.csv`\n"
-        "- `data/network_edge_list.csv`\n\n"
+        "- `data/cleaned_edges.csv`\n- `data/network_edge_list.csv`\n\n"
         "Run the scraper first or copy the CSV files into the `data/` directory."
     )
     st.stop()
@@ -103,32 +168,94 @@ if edges_df is None:
 nodes_df = data["nodes"]
 
 # =========================================================================
-# Build graph & compute metrics (cached)
+# Graph + metrics (cached)
 # =========================================================================
-G = build_graph(edges_df, directed=True)
-metrics_df = compute_metrics(G)
-communities = detect_communities(G)
-summary = graph_summary(G)
+G             = build_graph(edges_df, directed=True)
+metrics_df    = compute_metrics(G)
+communities   = detect_communities(G)
+summary       = graph_summary(G)
+comm_counts   = Counter(communities.values())
 
-# Attach community to metrics
 metrics_df["community"] = metrics_df.index.map(lambda n: communities.get(n, -1))
 
-# Datetime availability
 has_dates = (
     "datetime" in edges_df.columns
     and edges_df["datetime"].notna().sum() > 10
 )
 if has_dates:
     valid_dates = edges_df["datetime"].dropna()
-    date_min = valid_dates.min()
-    date_max = valid_dates.max()
+    date_min    = valid_dates.min()
+    date_max    = valid_dates.max()
+
 
 # =========================================================================
-# Sidebar — navigation
+# Helpers
+# =========================================================================
+
+def _kpi(label: str, value: str, subtitle: str = "",
+         color: str = "#00E5A8") -> str:
+    """Return HTML for a styled KPI card."""
+    sub = (f"<div style='color:#8899AA;font-size:0.73rem;margin-top:4px;'>"
+           f"{subtitle}</div>") if subtitle else ""
+    return f"""
+<div style='background:#141A23;border:1px solid rgba(255,255,255,0.07);
+border-left:3px solid {color};border-radius:8px;padding:16px 20px;height:100%;'>
+  <div style='color:#8899AA;font-size:0.67rem;text-transform:uppercase;
+  letter-spacing:0.09em;margin-bottom:6px;'>{label}</div>
+  <div style='color:#E6EDF3;font-size:1.55rem;font-weight:700;
+  line-height:1.1;letter-spacing:-0.02em;'>{value}</div>
+  {sub}
+</div>"""
+
+
+def _section_note(text: str):
+    st.markdown(
+        f"<div class='caption-text' style='margin-bottom:1rem;'>{text}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _metric_label(m: str) -> str:
+    return {
+        "weighted_degree": "Total Weight",
+        "degree":          "Connections",
+        "in_degree":       "Inbound Links",
+        "out_degree":      "Outbound Links",
+        "in_weighted":     "Messages Received",
+        "out_weighted":    "Messages Sent",
+        "betweenness":     "Betweenness",
+        "eigenvector":     "Eigenvector",
+        "community":       "Community",
+    }.get(m, m.replace("_", " ").title())
+
+
+def _fmt_table(df: pd.DataFrame, fmt_cols: dict | None = None) -> pd.DataFrame:
+    """Return a copy of df with number columns nicely formatted as strings."""
+    out = df.copy()
+    for col in out.select_dtypes(include="number").columns:
+        if fmt_cols and col in fmt_cols:
+            out[col] = out[col].map(fmt_cols[col])
+        elif out[col].abs().max() < 1.1:
+            out[col] = out[col].map("{:.4f}".format)
+        else:
+            out[col] = out[col].map("{:,.0f}".format)
+    return out
+
+
+# =========================================================================
+# Sidebar
 # =========================================================================
 with st.sidebar:
-    st.title("🔗 Jmail Network")
-    st.caption("Email communication analytics")
+    st.markdown(
+        "<div style='font-size:1.1rem;font-weight:700;color:#E6EDF3;"
+        "letter-spacing:0.01em;margin-bottom:2px;'>🔗 Jmail Network</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        "<div style='color:#8899AA;font-size:0.78rem;margin-bottom:12px;'>"
+        "Email communication intelligence</div>",
+        unsafe_allow_html=True,
+    )
     st.divider()
 
     section = st.radio(
@@ -146,38 +273,14 @@ with st.sidebar:
     )
 
     st.divider()
-    st.caption(
-        f"**{summary['num_nodes']:,}** nodes · "
-        f"**{summary['num_edges']:,}** edges · "
-        f"**{len(Counter(communities.values()))}** communities"
+    st.markdown(
+        f"<div style='color:#8899AA;font-size:0.75rem;line-height:1.8;'>"
+        f"<span style='color:#00E5A8;font-weight:600;'>{summary['num_nodes']:,}</span> nodes<br>"
+        f"<span style='color:#4FC3F7;font-weight:600;'>{summary['num_edges']:,}</span> edges<br>"
+        f"<span style='color:#BB86FC;font-weight:600;'>{len(comm_counts)}</span> communities"
+        f"</div>",
+        unsafe_allow_html=True,
     )
-
-
-# =========================================================================
-# Shared helpers
-# =========================================================================
-
-def _node_sizes_log(G_sub, min_px: int = 6, max_px: int = 32) -> dict:
-    """Log-scaled node sizes by weighted degree — prevents hubs from dominating."""
-    wdeg = {n: G_sub.degree(n, weight="weight") for n in G_sub.nodes()}
-    max_wd = max(wdeg.values()) if wdeg else 1
-    return {
-        n: min_px + (max_px - min_px) * math.log1p(wdeg[n]) / math.log1p(max_wd)
-        for n in G_sub.nodes()
-    }
-
-
-def _metric_label(m: str) -> str:
-    return {
-        "weighted_degree": "Total Message Weight",
-        "degree":          "Connection Count",
-        "in_degree":       "Inbound Connections",
-        "out_degree":      "Outbound Connections",
-        "in_weighted":     "Inbound Message Weight",
-        "out_weighted":    "Outbound Message Weight",
-        "betweenness":     "Betweenness Centrality",
-        "eigenvector":     "Eigenvector Centrality",
-    }.get(m, m.replace("_", " ").title())
 
 
 # =========================================================================
@@ -185,29 +288,44 @@ def _metric_label(m: str) -> str:
 # =========================================================================
 if section == "📊 Overview":
     st.header("Network Overview")
-    st.caption(
-        "A directed graph where each node is an email participant and each "
-        "edge represents messages sent between them. Edge weight = message count."
+    _section_note(
+        "A directed graph of email communication — nodes are participants, "
+        "edges represent message flows. Edge weight = total message count."
     )
 
-    # Row 1: core stats
+    # Row 1 — core KPIs
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Participants", f"{summary['num_nodes']:,}")
-    c2.metric("Unique Connections", f"{summary['num_edges']:,}")
-    c3.metric("Total Messages", f"{summary['total_weight']:,}")
-    c4.metric("Avg Connections / Node", f"{summary['avg_degree']:.1f}")
+    cards_r1 = [
+        ("Participants", f"{summary['num_nodes']:,}", "unique email addresses", "#00E5A8"),
+        ("Connections", f"{summary['num_edges']:,}", "directed edges", "#4FC3F7"),
+        ("Total Messages", f"{summary['total_weight']:,}", "cumulative weight", "#BB86FC"),
+        ("Avg Connections", f"{summary['avg_degree']:.1f}", "per node", "#FF9F43"),
+    ]
+    for col, (lbl, val, sub, clr) in zip([c1, c2, c3, c4], cards_r1):
+        col.markdown(_kpi(lbl, val, sub, clr), unsafe_allow_html=True)
 
-    # Row 2: structural stats
+    st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+
+    # Row 2 — structural KPIs
     c5, c6, c7, c8 = st.columns(4)
-    c5.metric("Communities", f"{len(Counter(communities.values())):,}")
-    c6.metric("Giant Component", f"{summary['giant_component_size']:,} nodes")
-    c7.metric("Components", f"{summary['num_components']:,}")
-    c8.metric("Graph Density", f"{summary['density']:.5f}")
+    cards_r2 = [
+        ("Communities", f"{len(comm_counts):,}", "Louvain detection", "#00E5A8"),
+        ("Giant Component", f"{summary['giant_component_size']:,}", "largest cluster", "#4FC3F7"),
+        ("Components", f"{summary['num_components']:,}", "disconnected subgraphs", "#BB86FC"),
+        ("Graph Density", f"{summary['density']:.5f}", "0 = sparse, 1 = complete", "#FF9F43"),
+    ]
+    for col, (lbl, val, sub, clr) in zip([c5, c6, c7, c8], cards_r2):
+        col.markdown(_kpi(lbl, val, sub, clr), unsafe_allow_html=True)
 
     if has_dates:
-        st.caption(
-            f"Date range: **{date_min.strftime('%b %d, %Y')}** → "
-            f"**{date_max.strftime('%b %d, %Y')}**"
+        st.markdown(
+            f"<div style='margin-top:14px;color:#8899AA;font-size:0.82rem;'>"
+            f"📅 Date range: "
+            f"<span style='color:#E6EDF3;font-weight:600;'>{date_min.strftime('%b %d, %Y')}</span>"
+            f" → "
+            f"<span style='color:#E6EDF3;font-weight:600;'>{date_max.strftime('%b %d, %Y')}</span>"
+            f"</div>",
+            unsafe_allow_html=True,
         )
 
     st.divider()
@@ -216,43 +334,52 @@ if section == "📊 Overview":
 
     with col_a:
         st.subheader("Top Senders")
-        top_out = metrics_df.nlargest(10, "out_weighted")[
-            ["out_weighted", "out_degree", "community"]
-        ].rename(columns={
-            "out_weighted": "Messages Sent",
-            "out_degree": "Recipients",
-            "community": "Community",
-        })
+        top_out = (
+            metrics_df.nlargest(10, "out_weighted")[["out_weighted", "out_degree", "community"]]
+            .rename(columns={"out_weighted": "Sent", "out_degree": "Recipients", "community": "Comm"})
+        )
         top_out.index.name = "Node"
-        st.dataframe(top_out, use_container_width=True)
+        st.dataframe(
+            top_out,
+            column_config={
+                "Sent": st.column_config.NumberColumn("Sent", format="%d"),
+                "Recipients": st.column_config.NumberColumn("Recipients", format="%d"),
+                "Comm": st.column_config.NumberColumn("Community", format="%d"),
+            },
+            use_container_width=True,
+        )
 
     with col_b:
         st.subheader("Top Recipients")
-        top_in = metrics_df.nlargest(10, "in_weighted")[
-            ["in_weighted", "in_degree", "community"]
-        ].rename(columns={
-            "in_weighted": "Messages Received",
-            "in_degree": "Senders",
-            "community": "Community",
-        })
+        top_in = (
+            metrics_df.nlargest(10, "in_weighted")[["in_weighted", "in_degree", "community"]]
+            .rename(columns={"in_weighted": "Received", "in_degree": "Senders", "community": "Comm"})
+        )
         top_in.index.name = "Node"
-        st.dataframe(top_in, use_container_width=True)
+        st.dataframe(
+            top_in,
+            column_config={
+                "Received": st.column_config.NumberColumn("Received", format="%d"),
+                "Senders": st.column_config.NumberColumn("Senders", format="%d"),
+                "Comm": st.column_config.NumberColumn("Community", format="%d"),
+            },
+            use_container_width=True,
+        )
 
     st.divider()
-    comm_counts = Counter(communities.values())
-    st.subheader(f"Community Size Distribution — {len(comm_counts)} communities detected (Louvain)")
+    st.subheader(f"Community Distribution — {len(comm_counts)} communities (Louvain)")
     fig = community_size_chart(sorted(comm_counts.values(), reverse=True))
     st.plotly_chart(fig, use_container_width=True)
 
 
 # =========================================================================
-# Section: Network Graph
+# Section: Network Graph  (PyVis)
 # =========================================================================
 elif section == "🌐 Network Graph":
     st.header("Interactive Network Graph")
-    st.caption(
-        "Nodes = participants · Edge thickness = relative message weight · "
-        "Labels shown for top nodes · Drag to pan, scroll to zoom."
+    _section_note(
+        "Physics-based layout — drag nodes to rearrange · scroll to zoom · "
+        "hover for details · allow 2–3 s for physics to settle on first load."
     )
 
     with st.sidebar:
@@ -261,85 +388,58 @@ elif section == "🌐 Network Graph":
         avg_w = summary["total_weight"] / max(summary["num_edges"], 1)
         default_min_w = max(2, int(avg_w * 0.5))
         min_weight = st.slider(
-            "Min edge weight", 1,
-            max(20, int(avg_w * 4)),
-            default_min_w,
+            "Min edge weight", 1, max(20, int(avg_w * 4)), default_min_w,
             help="Hide edges with fewer messages than this threshold.",
         )
-
-        default_max_n = min(80, summary["num_nodes"])
         max_nodes = st.slider(
-            "Max nodes shown", 20,
-            min(300, summary["num_nodes"]),
-            default_max_n,
+            "Max nodes shown", 20, min(300, summary["num_nodes"]),
+            min(80, summary["num_nodes"]),
             help="Show only the top-N most connected nodes.",
         )
-
         giant_only = st.checkbox(
             "Giant component only", value=True,
             help="Restrict to the largest connected subgraph.",
         )
-
         all_nodes = sorted(G.nodes())
         search_node = st.selectbox(
             "Highlight node", ["(none)"] + all_nodes,
-            help="Pin a specific node to the label list and highlight it in gold.",
+            help="Highlight a specific node in gold and always show its label.",
         )
         if search_node == "(none)":
             search_node = None
 
-        color_mode = st.radio(
-            "Node color", ["Community", "Message Weight"],
-            horizontal=True,
-        )
-
         label_n = st.slider("Label top-N nodes", 5, 30, 12)
 
-    # Filter + layout
-    H = filter_graph(G, min_weight=min_weight, max_nodes=max_nodes,
-                     giant_only=giant_only, highlight_node=search_node)
+    H = filter_graph(
+        G, min_weight=min_weight, max_nodes=max_nodes,
+        giant_only=giant_only, highlight_node=search_node,
+    )
 
     if H.number_of_nodes() == 0:
         st.warning(
             "No nodes remain after filtering. "
-            "Try lowering the minimum edge weight or disabling 'Giant component only'."
+            "Lower the minimum edge weight or disable 'Giant component only'."
         )
     else:
-        pos = compute_layout(H)
-
-        node_sizes = _node_sizes_log(H)
-        if search_node and search_node in H:
-            node_sizes[search_node] = 35
-
-        wdeg = {n: H.degree(n, weight="weight") for n in H.nodes()}
-
-        if color_mode == "Community":
-            node_colors = {n: communities.get(n, 0) for n in H.nodes()}
-            clabel = "Community"
-            is_cat = True
-        else:
-            node_colors = wdeg
-            clabel = "Message Weight"
-            is_cat = False
-
-        fig = plotly_network(
-            H, pos,
-            node_sizes=node_sizes,
-            node_colors=node_colors,
-            color_label=clabel,
-            title=f"{H.number_of_nodes()} nodes · {H.number_of_edges()} edges",
+        st.markdown(
+            f"<div style='color:#8899AA;font-size:0.78rem;margin-bottom:8px;'>"
+            f"Showing <span style='color:#E6EDF3;font-weight:600;'>{H.number_of_nodes()}</span> nodes · "
+            f"<span style='color:#E6EDF3;font-weight:600;'>{H.number_of_edges()}</span> edges "
+            f"· Node size = message weight · Color = community</div>",
+            unsafe_allow_html=True,
+        )
+        html = pyvis_network(
+            H, communities,
             highlight_node=search_node,
             label_top_n=label_n,
-            categorical=is_cat,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        components.html(html, height=690, scrolling=False)
 
         with st.expander("⬇ Download filtered edge list"):
-            filt_edges = [
+            filt_df = pd.DataFrame([
                 {"sender": u, "recipient": v, "weight": d.get("weight", 1)}
                 for u, v, d in H.edges(data=True)
-            ]
-            filt_df = pd.DataFrame(filt_edges)
+            ])
             st.download_button(
                 "Download CSV", filt_df.to_csv(index=False),
                 "filtered_edges.csv", "text/csv",
@@ -351,22 +451,22 @@ elif section == "🌐 Network Graph":
 # =========================================================================
 elif section == "🏆 Top Nodes":
     st.header("Most Important Participants")
+    _section_note("Rank participants by different network centrality metrics.")
 
     metric_options = [
         "weighted_degree", "out_weighted", "in_weighted",
         "degree", "out_degree", "in_degree",
         "betweenness", "eigenvector",
     ]
-    metric_choice = st.selectbox(
-        "Rank by",
-        metric_options,
-        format_func=_metric_label,
-    )
+    col_m, col_n = st.columns([2, 1])
+    with col_m:
+        metric_choice = st.selectbox(
+            "Rank by", metric_options, format_func=_metric_label,
+        )
+    with col_n:
+        n_show = st.slider("Show top", 10, 50, 20)
 
-    n_show = st.slider("Number of nodes", 10, 50, 20)
-
-    top = metrics_df.nlargest(n_show, metric_choice).copy()
-    top = top.sort_values(metric_choice, ascending=True)
+    top = metrics_df.nlargest(n_show, metric_choice).sort_values(metric_choice, ascending=True)
 
     fig = bar_chart(
         top.reset_index(),
@@ -377,24 +477,29 @@ elif section == "🏆 Top Nodes":
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Detailed Metrics Table")
-    display_cols = ["degree", "weighted_degree", "in_weighted", "out_weighted",
-                    "betweenness", "eigenvector", "community"]
-    table = metrics_df.nlargest(n_show, metric_choice)[display_cols].rename(
-        columns={c: _metric_label(c) for c in display_cols}
-    )
+    st.subheader("Full Metrics Table")
+    display_cols = [
+        "degree", "weighted_degree", "in_weighted", "out_weighted",
+        "betweenness", "eigenvector", "community",
+    ]
+    table = metrics_df.nlargest(n_show, metric_choice)[display_cols]
     table.index.name = "Node"
+
     st.dataframe(
-        table.style.format({
-            _metric_label("betweenness"): "{:.4f}",
-            _metric_label("eigenvector"): "{:.4f}",
-        }),
+        table,
+        column_config={
+            "degree":         st.column_config.NumberColumn("Connections", format="%d"),
+            "weighted_degree":st.column_config.NumberColumn("Total Weight", format="%d"),
+            "in_weighted":    st.column_config.NumberColumn("Received", format="%d"),
+            "out_weighted":   st.column_config.NumberColumn("Sent", format="%d"),
+            "betweenness":    st.column_config.NumberColumn("Betweenness", format="%.4f"),
+            "eigenvector":    st.column_config.NumberColumn("Eigenvector", format="%.4f"),
+            "community":      st.column_config.NumberColumn("Community", format="%d"),
+        },
         use_container_width=True,
     )
     st.download_button(
-        "⬇ Download table CSV",
-        table.to_csv(),
-        "top_nodes.csv", "text/csv",
+        "⬇ Download CSV", table.to_csv(), "top_nodes.csv", "text/csv",
     )
 
 
@@ -403,16 +508,23 @@ elif section == "🏆 Top Nodes":
 # =========================================================================
 elif section == "🧩 Communities":
     st.header("Community Detection")
-    st.caption("Communities detected using the Louvain algorithm on the undirected projection.")
-
-    comm_counts = Counter(communities.values())
-    n_comms = len(comm_counts)
+    _section_note(
+        "Communities are detected using the Louvain algorithm on the "
+        "undirected projection of the email graph."
+    )
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Communities Detected", n_comms)
-    c2.metric("Largest Community", f"{max(comm_counts.values()):,} members")
-    c3.metric("Median Community Size", f"{int(pd.Series(list(comm_counts.values())).median())} members")
+    c1.markdown(_kpi("Communities", f"{len(comm_counts):,}", "Louvain clusters", "#00E5A8"),
+                unsafe_allow_html=True)
+    c2.markdown(_kpi("Largest Community",
+                     f"{max(comm_counts.values()):,} members", "most connected cluster", "#4FC3F7"),
+                unsafe_allow_html=True)
+    c3.markdown(_kpi("Median Size",
+                     f"{int(pd.Series(list(comm_counts.values())).median())}",
+                     "members per community", "#BB86FC"),
+                unsafe_allow_html=True)
 
+    st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
     fig = community_size_chart(sorted(comm_counts.values(), reverse=True))
     st.plotly_chart(fig, use_container_width=True)
 
@@ -421,50 +533,58 @@ elif section == "🧩 Communities":
 
     sorted_comms = sorted(comm_counts.keys(), key=lambda c: comm_counts[c], reverse=True)
     selected_comm = st.selectbox(
-        "Select community",
-        sorted_comms,
-        format_func=lambda c: f"Community {c}  ({comm_counts[c]} members)",
+        "Select community", sorted_comms,
+        format_func=lambda c: f"Community {c}  ·  {comm_counts[c]} members",
     )
 
     members = [n for n, c in communities.items() if c == selected_comm]
-    member_metrics = metrics_df.loc[metrics_df.index.isin(members)].sort_values(
-        "weighted_degree", ascending=False
+    member_metrics = (
+        metrics_df.loc[metrics_df.index.isin(members)]
+        .sort_values("weighted_degree", ascending=False)
     )
 
     mc1, mc2, mc3 = st.columns(3)
-    mc1.metric("Members", len(members))
-    mc2.metric("Top Sender", member_metrics["out_weighted"].idxmax() if not member_metrics.empty else "—")
-    mc3.metric("Top Recipient", member_metrics["in_weighted"].idxmax() if not member_metrics.empty else "—")
+    mc1.markdown(_kpi("Members", f"{len(members):,}", f"community {selected_comm}", "#00E5A8"),
+                 unsafe_allow_html=True)
+    if not member_metrics.empty:
+        top_sender = member_metrics["out_weighted"].idxmax()
+        top_recv   = member_metrics["in_weighted"].idxmax()
+        mc2.markdown(_kpi("Top Sender", top_sender, "most outbound messages", "#4FC3F7"),
+                     unsafe_allow_html=True)
+        mc3.markdown(_kpi("Top Recipient", top_recv, "most inbound messages", "#BB86FC"),
+                     unsafe_allow_html=True)
 
-    display = member_metrics[["degree", "weighted_degree", "in_weighted", "out_weighted", "betweenness"]].head(20)
-    display.index.name = "Node"
+    st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+    disp = member_metrics[
+        ["degree", "weighted_degree", "in_weighted", "out_weighted", "betweenness"]
+    ].head(20)
+    disp.index.name = "Node"
     st.dataframe(
-        display.rename(columns={c: _metric_label(c) for c in display.columns})
-               .style.format({_metric_label("betweenness"): "{:.4f}"}),
+        disp,
+        column_config={
+            "degree":         st.column_config.NumberColumn("Connections", format="%d"),
+            "weighted_degree":st.column_config.NumberColumn("Total Weight", format="%d"),
+            "in_weighted":    st.column_config.NumberColumn("Received", format="%d"),
+            "out_weighted":   st.column_config.NumberColumn("Sent", format="%d"),
+            "betweenness":    st.column_config.NumberColumn("Betweenness", format="%.4f"),
+        },
         use_container_width=True,
     )
 
-    with st.expander("View community subgraph"):
+    with st.expander("🌐 View community subgraph (PyVis)"):
         sub_G = G.subgraph(set(members)).copy()
         if sub_G.number_of_nodes() > 0:
-            # Limit large communities for rendering
             if sub_G.number_of_nodes() > 150:
-                st.caption(f"Showing top 150 of {sub_G.number_of_nodes()} members by message weight.")
+                st.caption(f"Showing top 150 of {sub_G.number_of_nodes()} members.")
                 wdeg = dict(sub_G.degree(weight="weight"))
                 top_m = sorted(wdeg, key=wdeg.get, reverse=True)[:150]
                 sub_G = sub_G.subgraph(top_m).copy()
-            pos = compute_layout(sub_G)
-            sizes = _node_sizes_log(sub_G)
-            wdeg = {n: sub_G.degree(n, weight="weight") for n in sub_G.nodes()}
-            fig = plotly_network(
-                sub_G, pos,
-                node_sizes=sizes,
-                node_colors=wdeg,
-                color_label="Message Weight",
-                title=f"Community {selected_comm} — {sub_G.number_of_nodes()} nodes",
-                categorical=False,
+            html = pyvis_network(
+                sub_G, communities,
+                height="520px",
+                label_top_n=10,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            components.html(html, height=540, scrolling=False)
 
 
 # =========================================================================
@@ -472,16 +592,17 @@ elif section == "🧩 Communities":
 # =========================================================================
 elif section == "👤 Ego Network":
     st.header("Ego Network Explorer")
-    st.caption("Explore the immediate communication neighbourhood of any participant.")
+    _section_note(
+        "Explore the immediate communication neighbourhood around any participant. "
+        "Radius 1 = direct contacts only · radius 2 = contacts-of-contacts."
+    )
 
     all_nodes_sorted = metrics_df.sort_values("weighted_degree", ascending=False).index.tolist()
-
     col_sel, col_rad = st.columns([3, 1])
     with col_sel:
         ego_node = st.selectbox("Select participant", all_nodes_sorted)
     with col_rad:
-        radius = st.radio("Radius", [1, 2], horizontal=True,
-                          help="1 = direct contacts only · 2 = contacts-of-contacts")
+        radius = st.radio("Radius", [1, 2], horizontal=True)
 
     ego_G = get_ego_graph(G, ego_node, radius=radius)
 
@@ -491,76 +612,89 @@ elif section == "👤 Ego Network":
         node_stats = metrics_df.loc[ego_node] if ego_node in metrics_df.index else None
         if node_stats is not None:
             c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Total Connections", int(node_stats["degree"]))
-            c2.metric("Messages Sent", int(node_stats["out_weighted"]))
-            c3.metric("Messages Received", int(node_stats["in_weighted"]))
-            c4.metric("Betweenness", f"{node_stats['betweenness']:.4f}")
-            c5.metric("Community", int(node_stats["community"]))
+            kpi_data = [
+                ("Connections", f"{int(node_stats['degree']):,}", "#00E5A8"),
+                ("Sent", f"{int(node_stats['out_weighted']):,}", "#4FC3F7"),
+                ("Received", f"{int(node_stats['in_weighted']):,}", "#BB86FC"),
+                ("Betweenness", f"{node_stats['betweenness']:.4f}", "#FF9F43"),
+                ("Community", f"{int(node_stats['community'])}", "#FF6B6B"),
+            ]
+            for col, (lbl, val, clr) in zip([c1, c2, c3, c4, c5], kpi_data):
+                col.markdown(_kpi(lbl, val, color=clr), unsafe_allow_html=True)
 
-        # Activity date range
         if has_dates:
             node_msgs = edges_df[
                 (edges_df["sender"] == ego_node) | (edges_df["recipient"] == ego_node)
             ]
             valid = node_msgs["datetime"].dropna()
             if len(valid) > 0:
-                st.caption(
-                    f"Active: **{valid.min().strftime('%b %d, %Y')}** → "
-                    f"**{valid.max().strftime('%b %d, %Y')}** "
-                    f"({len(node_msgs):,} messages)"
+                st.markdown(
+                    f"<div style='color:#8899AA;font-size:0.8rem;margin-top:10px;'>"
+                    f"Active: <span style='color:#E6EDF3;'>{valid.min().strftime('%b %d, %Y')}</span>"
+                    f" → <span style='color:#E6EDF3;'>{valid.max().strftime('%b %d, %Y')}</span>"
+                    f" &nbsp;·&nbsp; {len(node_msgs):,} messages"
+                    f"</div>",
+                    unsafe_allow_html=True,
                 )
 
-        st.subheader("Strongest Ties")
-        ties = []
-        for u, v, d in G.edges(ego_node, data=True):
-            ties.append({"contact": v, "outgoing": d.get("weight", 1), "incoming": 0})
-        if G.is_directed():
-            for u, v, d in G.in_edges(ego_node, data=True):
-                ties.append({"contact": u, "outgoing": 0, "incoming": d.get("weight", 1)})
+        st.divider()
+        col_ties, col_graph = st.columns([1, 2])
 
-        if ties:
-            ties_df = pd.DataFrame(ties)
-            agg = ties_df.groupby("contact").sum(numeric_only=True).reset_index()
-            agg["total"] = agg["outgoing"] + agg["incoming"]
-            agg = agg.sort_values("total", ascending=False).head(15)
-            st.dataframe(agg, use_container_width=True, hide_index=True)
+        with col_ties:
+            st.subheader("Strongest Ties")
+            ties = []
+            for u, v, d in G.edges(ego_node, data=True):
+                ties.append({"contact": v, "outgoing": d.get("weight", 1), "incoming": 0})
+            if G.is_directed():
+                for u, v, d in G.in_edges(ego_node, data=True):
+                    ties.append({"contact": u, "outgoing": 0, "incoming": d.get("weight", 1)})
+            if ties:
+                ties_df = pd.DataFrame(ties)
+                agg = ties_df.groupby("contact").sum(numeric_only=True).reset_index()
+                agg["total"] = agg["outgoing"] + agg["incoming"]
+                agg = agg.sort_values("total", ascending=False).head(15)
+                st.dataframe(
+                    agg,
+                    column_config={
+                        "outgoing": st.column_config.NumberColumn("Sent", format="%d"),
+                        "incoming": st.column_config.NumberColumn("Received", format="%d"),
+                        "total":    st.column_config.NumberColumn("Total", format="%d"),
+                    },
+                    use_container_width=True,
+                    hide_index=True,
+                )
 
-        # Ego graph visualisation
-        st.subheader(f"Ego Graph (radius {radius})")
-        if ego_G.number_of_nodes() > 250:
-            st.caption(f"Large ego network ({ego_G.number_of_nodes()} nodes) — showing top 250 by weight.")
-            wdeg = {n: ego_G.degree(n, weight="weight") for n in ego_G.nodes()}
-            top = sorted(wdeg, key=wdeg.get, reverse=True)[:250]
-            if ego_node not in top:
-                top.append(ego_node)
-            ego_G = ego_G.subgraph(top).copy()
+        with col_graph:
+            st.subheader(f"Ego Graph — radius {radius}")
+            if ego_G.number_of_nodes() > 250:
+                st.caption(f"{ego_G.number_of_nodes()} nodes — showing top 250 by weight.")
+                wdeg = {n: ego_G.degree(n, weight="weight") for n in ego_G.nodes()}
+                top = sorted(wdeg, key=wdeg.get, reverse=True)[:250]
+                if ego_node not in top:
+                    top.append(ego_node)
+                ego_G = ego_G.subgraph(top).copy()
 
-        pos = compute_layout(ego_G)
-        sizes = _node_sizes_log(ego_G)
-        sizes[ego_node] = 32
-        colors = {n: communities.get(n, 0) for n in ego_G.nodes()}
-
-        fig = plotly_network(
-            ego_G, pos,
-            node_sizes=sizes,
-            node_colors=colors,
-            color_label="Community",
-            title=f"Ego network: {ego_node}  ({ego_G.number_of_nodes()} nodes)",
-            highlight_node=ego_node,
-            label_top_n=10,
-            categorical=True,
-        )
-        st.plotly_chart(fig, use_container_width=True)
+            html = pyvis_network(
+                ego_G, communities,
+                highlight_node=ego_node,
+                height="480px",
+                label_top_n=8,
+            )
+            components.html(html, height=500, scrolling=False)
 
 
 # =========================================================================
-# Section: Relationships / Heatmap
+# Section: Relationships
 # =========================================================================
 elif section == "🔥 Relationships":
     st.header("Relationship Strength")
-    st.caption("Explore message volume between specific participants.")
+    _section_note("Explore message volume between specific participants or across the top-N.")
 
-    mode = st.radio("View mode", ["Top-N interaction matrix", "Node spotlight"], horizontal=True)
+    mode = st.radio(
+        "View mode",
+        ["Top-N interaction matrix", "Node spotlight"],
+        horizontal=True,
+    )
 
     if mode == "Top-N interaction matrix":
         n = st.slider("Top N nodes", 5, 30, 15)
@@ -568,8 +702,8 @@ elif section == "🔥 Relationships":
         matrix = build_interaction_matrix(G, top_nodes)
         fig = heatmap(
             matrix,
-            title=f"Message Volume Matrix — Top {n} participants",
-            height=max(420, n * 30),
+            title=f"Message Volume — Top {n} participants",
+            height=max(430, n * 32),
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -597,12 +731,17 @@ elif section == "🔥 Relationships":
             )
             fig = bar_chart(
                 cdf, x="contact", y="messages",
-                title=f"Top contacts for: {sel}",
+                title=f"Top contacts: {sel}",
                 horizontal=True,
                 height=max(320, len(cdf) * 26),
             )
             st.plotly_chart(fig, use_container_width=True)
-            st.dataframe(cdf, use_container_width=True, hide_index=True)
+            st.dataframe(
+                cdf,
+                column_config={"messages": st.column_config.NumberColumn("Messages", format="%d")},
+                use_container_width=True,
+                hide_index=True,
+            )
         else:
             st.info("No connections found for this node.")
 
@@ -612,12 +751,20 @@ elif section == "🔥 Relationships":
         {"sender": u, "recipient": v, "messages": d.get("weight", 1)}
         for u, v, d in G.edges(data=True)
     ]
-    strong_df = pd.DataFrame(strong).sort_values("messages", ascending=False).head(25)
-    st.dataframe(strong_df, use_container_width=True, hide_index=True)
+    strong_df = (
+        pd.DataFrame(strong)
+        .sort_values("messages", ascending=False)
+        .head(25)
+    )
+    st.dataframe(
+        strong_df,
+        column_config={"messages": st.column_config.NumberColumn("Messages", format="%d")},
+        use_container_width=True,
+        hide_index=True,
+    )
     st.download_button(
-        "⬇ Download top connections CSV",
-        strong_df.to_csv(index=False),
-        "strongest_edges.csv", "text/csv",
+        "⬇ Download CSV", strong_df.to_csv(index=False),
+        "strongest_connections.csv", "text/csv",
     )
 
 
@@ -626,24 +773,45 @@ elif section == "🔥 Relationships":
 # =========================================================================
 elif section == "📅 Timeline":
     st.header("Activity Timeline")
-    st.caption("Message volume and relationship formation over time.")
+    _section_note("Message volume and new relationship formation over time.")
 
     if not has_dates:
-        st.info(
-            "No timestamp data found. "
-            "This section requires a `datetime` column with valid timestamps in the edge CSV."
+        # Graceful no-data card
+        st.markdown(
+            f"""
+<div style='background:#141A23;border:1px solid rgba(255,107,107,0.3);
+border-left:3px solid #FF6B6B;border-radius:8px;padding:20px 24px;
+margin-top:12px;'>
+  <div style='color:#FF6B6B;font-weight:700;font-size:0.95rem;margin-bottom:6px;'>
+    📅 No timestamp data available
+  </div>
+  <div style='color:#8899AA;font-size:0.83rem;line-height:1.7;'>
+    The edge data does not contain a recognised <code style='color:#E6EDF3;'>datetime</code>
+    column, or fewer than 10 valid timestamps were found.<br><br>
+    To enable the timeline, ensure the CSV has a column named
+    <code style='color:#E6EDF3;'>datetime</code>, <code style='color:#E6EDF3;'>date</code>,
+    or <code style='color:#E6EDF3;'>timestamp</code> with parseable date values.
+  </div>
+</div>
+""",
+            unsafe_allow_html=True,
         )
     else:
         valid = edges_df["datetime"].dropna()
 
+        c1, c2, c3 = st.columns(3)
+        c1.markdown(_kpi("First Message", date_min.strftime("%b %d, %Y"), color="#4FC3F7"),
+                    unsafe_allow_html=True)
+        c2.markdown(_kpi("Last Message", date_max.strftime("%b %d, %Y"), color="#4FC3F7"),
+                    unsafe_allow_html=True)
+        span_days = (date_max - date_min).days
+        c3.markdown(_kpi("Active Span", f"{span_days:,} days", color="#4FC3F7"),
+                    unsafe_allow_html=True)
+
+        st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
+
         freq = st.radio("Aggregation", ["Month", "Week", "Day"], horizontal=True)
         freq_map = {"Month": "M", "Week": "W", "Day": "D"}
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("First Message", date_min.strftime("%b %d, %Y"))
-        with col2:
-            st.metric("Last Message", date_max.strftime("%b %d, %Y"))
 
         fig = timeline_chart(valid, freq=freq_map[freq],
                              title=f"Email Volume by {freq}")
@@ -653,17 +821,19 @@ elif section == "📅 Timeline":
         st.plotly_chart(fig2, use_container_width=True)
 
         st.subheader("New Relationships Over Time")
-        st.caption("When each unique sender → recipient pair first appeared.")
+        _section_note("When each unique sender → recipient pair first appeared.")
         first_seen = (
             edges_df.dropna(subset=["datetime"])
             .sort_values("datetime")
             .assign(pair=lambda df: df["sender"] + " → " + df["recipient"])
             .drop_duplicates("pair")
         )
-        if len(first_seen) > 0:
+        if len(first_seen) > 1:
             fig3 = timeline_chart(
                 first_seen["datetime"],
                 freq=freq_map[freq],
                 title=f"New Unique Relationships by {freq}",
             )
             st.plotly_chart(fig3, use_container_width=True)
+        else:
+            st.info("Not enough relationship data to plot this chart.")

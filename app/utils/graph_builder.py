@@ -70,6 +70,18 @@ def compute_metrics(_G: nx.DiGraph | nx.Graph) -> pd.DataFrame:
     degree = dict(G.degree())
     weighted_degree = dict(G.degree(weight="weight"))
 
+    # In/out degree for directed graphs
+    if G.is_directed():
+        in_degree = dict(G.in_degree())
+        out_degree = dict(G.out_degree())
+        in_weighted = dict(G.in_degree(weight="weight"))
+        out_weighted = dict(G.out_degree(weight="weight"))
+    else:
+        in_degree = degree
+        out_degree = degree
+        in_weighted = weighted_degree
+        out_weighted = weighted_degree
+
     # Betweenness on undirected version for speed
     betweenness = nx.betweenness_centrality(undirected, weight=None, k=min(200, len(G)))
 
@@ -85,11 +97,15 @@ def compute_metrics(_G: nx.DiGraph | nx.Graph) -> pd.DataFrame:
             pass
 
     df = pd.DataFrame({
-        "node": list(G.nodes()),
-        "degree": [degree.get(n, 0) for n in G.nodes()],
-        "weighted_degree": [weighted_degree.get(n, 0) for n in G.nodes()],
-        "betweenness": [betweenness.get(n, 0.0) for n in G.nodes()],
-        "eigenvector": [eigenvector.get(n, 0.0) for n in G.nodes()],
+        "node":           list(G.nodes()),
+        "degree":         [degree.get(n, 0) for n in G.nodes()],
+        "in_degree":      [in_degree.get(n, 0) for n in G.nodes()],
+        "out_degree":     [out_degree.get(n, 0) for n in G.nodes()],
+        "weighted_degree":[weighted_degree.get(n, 0) for n in G.nodes()],
+        "in_weighted":    [in_weighted.get(n, 0) for n in G.nodes()],
+        "out_weighted":   [out_weighted.get(n, 0) for n in G.nodes()],
+        "betweenness":    [betweenness.get(n, 0.0) for n in G.nodes()],
+        "eigenvector":    [eigenvector.get(n, 0.0) for n in G.nodes()],
     }).set_index("node")
 
     return df
@@ -123,6 +139,8 @@ def graph_summary(G: nx.DiGraph | nx.Graph) -> dict:
     components = list(nx.connected_components(undirected))
     largest = max(components, key=len) if components else set()
     total_weight = sum(d.get("weight", 1) for _, _, d in G.edges(data=True))
+    degrees = [d for _, d in G.degree()]
+    avg_degree = sum(degrees) / len(degrees) if degrees else 0
 
     return {
         "num_nodes": G.number_of_nodes(),
@@ -131,6 +149,7 @@ def graph_summary(G: nx.DiGraph | nx.Graph) -> dict:
         "num_components": len(components),
         "giant_component_size": len(largest),
         "density": nx.density(G),
+        "avg_degree": avg_degree,
     }
 
 

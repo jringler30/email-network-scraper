@@ -10,7 +10,7 @@ import streamlit as st
 def filter_graph(
     G: nx.DiGraph | nx.Graph,
     min_weight: int = 1,
-    max_nodes: int = 300,
+    max_nodes: int = 100,
     giant_only: bool = False,
     highlight_node: str | None = None,
 ) -> nx.DiGraph | nx.Graph:
@@ -47,10 +47,9 @@ def filter_graph(
     if H.number_of_nodes() > max_nodes:
         wdeg = dict(H.degree(weight="weight"))
         top_nodes = sorted(wdeg, key=wdeg.get, reverse=True)[:max_nodes]
-        # Ensure highlight node is included
+        # Ensure highlight node and its direct neighbors are included
         if highlight_node and highlight_node in H and highlight_node not in top_nodes:
             top_nodes[-1] = highlight_node
-            # Also include its neighbors
             neighbors = list(H.neighbors(highlight_node))
             if H.is_directed():
                 neighbors += list(H.predecessors(highlight_node))
@@ -64,12 +63,18 @@ def filter_graph(
 
 @st.cache_data(show_spinner=False)
 def compute_layout(_G, seed: int = 42) -> dict:
-    """Compute a spring layout, cached."""
+    """
+    Compute a spring layout, cached.
+    Uses unweighted layout for better node spacing (weight-based layout
+    over-clusters heavy-edge pairs, obscuring the structure).
+    """
     G = _G
     if G.number_of_nodes() == 0:
         return {}
-    k = max(1.0 / (G.number_of_nodes() ** 0.5), 0.05)
-    return nx.spring_layout(G, k=k, iterations=50, seed=seed, weight="weight")
+    n = G.number_of_nodes()
+    # Larger k = more spread out; scale inversely with sqrt(n)
+    k = max(2.5 / (n ** 0.5), 0.08)
+    return nx.spring_layout(G, k=k, iterations=80, seed=seed)
 
 
 def build_interaction_matrix(G, nodes: list[str]) -> pd.DataFrame:

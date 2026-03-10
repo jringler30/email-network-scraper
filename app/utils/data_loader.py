@@ -12,9 +12,6 @@ from pathlib import Path
 # Schema detection helpers
 # ---------------------------------------------------------------------------
 
-# We support several possible column-name conventions so the loader is
-# resilient to minor CSV variations (e.g. "sender" vs "from", etc.)
-
 _EDGE_COL_ALIASES = {
     "sender":         ["sender", "from", "source", "from_address", "src"],
     "recipient":      ["recipient", "to", "target", "to_address", "dst"],
@@ -32,6 +29,9 @@ _NODE_COL_ALIASES = {
     "roles":   ["roles", "role", "type"],
 }
 
+# Sentinel strings that represent missing data after CSV parsing
+_BAD_VALUES = {"nan", "NaN", "NaT", "None", "none", "null", "NULL", ""}
+
 
 def _resolve(df: pd.DataFrame, aliases: dict[str, list[str]]) -> dict[str, str | None]:
     """Map canonical column names to actual column names present in *df*."""
@@ -46,6 +46,16 @@ def _resolve(df: pd.DataFrame, aliases: dict[str, list[str]]) -> dict[str, str |
     return mapping
 
 
+def _clean_edge_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop rows with missing or sentinel sender/recipient values."""
+    for col in ("sender", "recipient"):
+        if col in df.columns:
+            df = df[~df[col].isin(_BAD_VALUES)]
+            df = df[df[col].notna()]
+            df = df[df[col].str.strip().str.len() > 0]
+    return df.reset_index(drop=True)
+
+
 # ---------------------------------------------------------------------------
 # Loaders (cached)
 # ---------------------------------------------------------------------------
@@ -56,25 +66,28 @@ def load_edges(path: str | Path) -> pd.DataFrame | None:
     path = Path(path)
     if not path.exists():
         return None
-    df = pd.read_csv(path, low_memory=False)
+    try:
+        df = pd.read_csv(path, low_memory=False)
+    except Exception:
+        return None
     if df.empty:
         return None
-    col_map = _resolve(df, _EDGE_COL_ALIASES)
 
-    # Rename found columns to canonical names
+    col_map = _resolve(df, _EDGE_COL_ALIASES)
     rename = {v: k for k, v in col_map.items() if v is not None}
     df = df.rename(columns=rename)
 
-    # Parse datetime if present
+    # Parse datetime defensively
     if "datetime" in df.columns:
-        df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+        df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce", utc=False)
 
-    # Ensure sender/recipient are strings
+    # Ensure sender/recipient are clean strings
     for col in ("sender", "recipient"):
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
 
-    return df
+    df = _clean_edge_df(df)
+    return df if not df.empty else None
 
 
 @st.cache_data(show_spinner=False)
@@ -83,7 +96,10 @@ def load_nodes(path: str | Path) -> pd.DataFrame | None:
     path = Path(path)
     if not path.exists():
         return None
-    df = pd.read_csv(path, low_memory=False)
+    try:
+        df = pd.read_csv(path, low_memory=False)
+    except Exception:
+        return None
     if df.empty:
         return None
     col_map = _resolve(df, _NODE_COL_ALIASES)
@@ -98,7 +114,10 @@ def load_network_edge_list(path: str | Path) -> pd.DataFrame | None:
     path = Path(path)
     if not path.exists():
         return None
-    df = pd.read_csv(path, low_memory=False)
+    try:
+        df = pd.read_csv(path, low_memory=False)
+    except Exception:
+        return None
     if df.empty:
         return None
     col_map = _resolve(df, _EDGE_COL_ALIASES)
@@ -107,27 +126,25 @@ def load_network_edge_list(path: str | Path) -> pd.DataFrame | None:
     for col in ("sender", "recipient"):
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
-    return df
+    df = _clean_edge_df(df)
+    return df if not df.empty else None
 
 
 # ---------------------------------------------------------------------------
-# Master loader - returns the best available data sources
+# Master loader
 # ---------------------------------------------------------------------------
 
 def load_all(data_dir: str | Path = ".") -> dict:
     """
     Return a dict with keys 'edges', 'nodes', 'net_edges', plus metadata.
-    Any value may be None if the file is missing.
+    Any value may be None if the file is missing or unreadable.
     """
     data_dir = Path(data_dir)
     edges     = load_edges(data_dir / "cleaned_edges.csv")
     nodes     = load_nodes(data_dir / "cleaned_nodes.csv")
     net_edges = load_network_edge_list(data_dir / "network_edge_list.csv")
 
-    # Determine primary edge source
-    primary_edges = edges
-    if primary_edges is None:
-        primary_edges = net_edges  # fallback
+    primary_edges = edges if edges is not None else net_edges
 
     return {
         "edges": edges,

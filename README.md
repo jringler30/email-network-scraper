@@ -8,7 +8,7 @@ An end-to-end email network analysis project — from data collection to interac
 
 **[→ Open the Interactive Dashboard](https://jmail-network-msba.streamlit.app/)**
 
-Explore the email communication network directly in your browser — no installation required. The dashboard supports interactive graph exploration, community detection, ego network analysis, and relationship strength visualization.
+Explore the email communication network directly in your browser — no installation required.
 
 ---
 
@@ -25,23 +25,27 @@ This project treats an email archive as a communication network and applies netw
 
 ## Dashboard Features
 
-### Interactive Network Graph
-A physics-based force-directed graph of the full communication network. Nodes are sized by message volume, colored by community, and spread using Barnes-Hut simulation. Drag, zoom, and click to explore. Filters for minimum edge weight, node count, and component selection are available in the sidebar.
+### Overview
+High-level KPI cards covering participants, connections, total message volume, average connections per node, number of communities, largest connected component size, total component count, and graph density. Includes top-10 sender and recipient tables and a community size distribution chart.
 
-### Node Importance Ranking
-Rank all participants by multiple centrality metrics — total message volume, messages sent, messages received, betweenness centrality, and eigenvector centrality. View results as a bar chart or sortable table.
+### Interactive Network Graph
+A physics-based force-directed graph of the full communication network rendered with PyVis (Barnes-Hut simulation). Nodes are sized by message volume and colored by community. Inline controls let you filter by minimum edge weight, cap the number of nodes shown, restrict to the giant component, label the top-N highest-weight nodes, and highlight any specific node. A download button exports the filtered edge list as CSV.
+
+### Top Nodes
+Rank all participants by any of eight centrality metrics: total weight, messages sent, messages received, degree, in-degree, out-degree, betweenness centrality, and eigenvector centrality. Results display as a horizontal bar chart plus a sortable, downloadable metrics table.
 
 ### Community Detection
-Louvain algorithm applied to the undirected projection of the network. View the size distribution of detected communities, browse members of each community, and explore any community as a standalone subgraph.
+Louvain algorithm applied to the undirected projection of the network. Displays community count, size of the largest community, and median community size. Select any community to see per-member metrics and explore it as a standalone interactive subgraph (capped at 150 nodes for performance).
 
 ### Ego Network Explorer
-Select any participant and visualize their immediate communication neighborhood. Supports radius 1 (direct contacts) and radius 2 (contacts-of-contacts). Shows the participant's strongest ties alongside a focused interactive graph.
+Select any participant to visualize their immediate communication neighborhood at radius 1 (direct contacts) or radius 2 (contacts-of-contacts). Shows KPI cards for connections, messages sent and received, betweenness centrality, and community assignment — plus an activity date range if timestamp data is available. A side-by-side strongest-ties table and focused PyVis graph are rendered for the selected node.
 
-### Relationship Strength Analysis
-Explore message volume between specific participants or view a heatmap of the top-N most active nodes. Identify the strongest bilateral connections across the entire network.
+### Relationship Strength
+Two view modes:
+- **Top flows (Sankey)** — visualize the strongest sender → recipient message flows across the entire network, with adjustable top-N and CSV export
+- **Node spotlight** — select any participant and see a ranked bar chart of their top 20 contacts by message volume
 
-### Network Overview
-High-level statistics including total participants, connections, message volume, graph density, component count, and community count — displayed as a KPI dashboard.
+A global "Strongest Connections Overall" table (top 25) is shown at the bottom with CSV export.
 
 ---
 
@@ -85,7 +89,7 @@ The scraper is resumable — re-running continues from where it left off. Chrome
 ## Repository Structure
 
 ```
-email-network-scraper/
+jmail-network-explorer/
 ├── app/
 │   ├── app.py               # Streamlit dashboard (main entry point)
 │   └── utils/
@@ -97,7 +101,7 @@ email-network-scraper/
 │   ├── cleaned_edges.csv         # Edge list with sender, recipient, weight
 │   ├── cleaned_nodes.csv         # Node metadata
 │   └── network_edge_list.csv     # Aggregated weighted edge list
-├── notebooks/
+├── notebook/
 │   └── jmail_network.ipynb  # Exploratory analysis notebook
 ├── scraper/
 │   └── scraper.py           # Two-phase Selenium crawler
@@ -114,7 +118,7 @@ email-network-scraper/
 | [Streamlit](https://streamlit.io) | Dashboard framework |
 | [NetworkX](https://networkx.org) | Graph construction, metrics, community detection |
 | [PyVis](https://pyvis.readthedocs.io) | Interactive physics-based network visualization |
-| [Plotly](https://plotly.com/python/) | Charts, heatmaps, and statistical plots |
+| [Plotly](https://plotly.com/python/) | Charts, Sankey diagrams, and statistical plots |
 | [Pandas](https://pandas.pydata.org) | Data loading and transformation |
 | [python-louvain](https://python-louvain.readthedocs.io) | Louvain community detection |
 | [Selenium](https://selenium-python.readthedocs.io) | Automated browser scraping |
